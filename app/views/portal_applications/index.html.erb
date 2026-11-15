@@ -1,0 +1,80 @@
+
+<%# ============================================== %>
+<%# HERGA CORPORATE APPLICATION DIRECTORY         %>
+<%# ============================================== %>
+
+<%# Set the browser title. %>
+<% content_for :title, "Corporate Applications" %>
+
+<%# Main page container. %>
+<div class="container py-4">
+
+  <%# Page heading. %>
+  <div class="mb-4">
+
+    <h2 class="fw-bold" style="color:#243b55;">
+      Corporate Applications
+    </h2>
+
+    <p class="text-muted">
+      Access approved HERGA.NET applications and services.
+    </p>
+
+  </div>
+
+  <%# Responsive application card grid. %>
+  <div class="row g-3">
+
+    <%# Loop through all active applications. %>
+    <% @portal_applications.each do |application| %>
+
+      <div class="col-md-6 col-lg-4">
+
+        <div class="card h-100 shadow-sm">
+
+          <div class="card-body">
+
+            <%# Display the application category. %>
+            <span class="badge bg-secondary mb-3">
+              <%= application.category %>
+            </span>
+
+            <%# Display the application name. %>
+            <h5 class="card-title">
+              <%= application.name %>
+            </h5>
+
+            <%# Display the application description. %>
+            <p class="card-text text-muted">
+              <%= application.description %>
+            </p>
+
+            <%# Launch the application in a new browser tab. %>
+            <%= link_to "Launch Application",
+                application.url,
+                class: "btn btn-primary",
+                target: "_blank",
+                rel: "noopener noreferrer" %>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    <% end %>
+
+  </div>
+
+  <%# Display an empty-state message if no apps are active. %>
+  <% if @portal_applications.empty? %>
+
+    <div class="alert alert-info">
+
+      No corporate applications are currently available.
+
+    </div>
+
+  <% end %>
+
+</div>

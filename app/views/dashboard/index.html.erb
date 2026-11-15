@@ -1,0 +1,134 @@
+
+<% content_for :title, "HERGA Corporate Portal" %>
+
+<div class="container-fluid py-4"
+     style="background:#f4f6f9; min-height:100vh;">
+
+  <!-- Welcome -->
+  <div class="mb-4">
+
+    <h2 class="fw-bold" style="color:#243b55;">
+      Corporate Dashboard
+    </h2>
+
+    <p class="text-muted">
+      Welcome to HERGA.NET Enterprise Services
+    </p>
+
+  </div>
+
+  <!-- Statistics -->
+  <div class="row g-3 mb-4">
+
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <h2 class="fw-bold text-primary">
+            <%= @application_count %>
+          </h2>
+          <p class="text-muted mb-0">
+            Corporate Applications
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <h2 class="fw-bold">0</h2>
+          <p class="text-muted mb-0">
+            Corporate Announcements
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <h2 class="fw-bold">0</h2>
+          <p class="text-muted mb-0">
+            Registered IT Services
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Applications -->
+  <div class="card border-0 shadow-sm">
+
+    <div class="card-header bg-white py-3">
+
+      <div class="d-flex justify-content-between align-items-center">
+
+        <h5 class="mb-0 fw-bold">
+          Corporate Applications
+        </h5>
+
+        <%= link_to "View All",
+            portal_applications_path,
+            class: "btn btn-outline-primary btn-sm" %>
+
+      </div>
+
+    </div>
+
+    <div class="card-body">
+
+      <div class="row g-3">
+
+        <% @portal_applications.each do |application| %>
+
+          <div class="col-sm-6 col-lg-3">
+
+            <div class="card h-100 text-center border">
+
+              <div class="card-body">
+
+                <div class="mb-3">
+                  <span style="font-size:32px; color:#286090;">
+                    &#9635;
+                  </span>
+                </div>
+
+                <h5 class="card-title">
+                  <%= application.name %>
+                </h5>
+
+                <p class="card-text text-muted small">
+                  <%= truncate(application.description.to_s,
+                      length:80) %>
+                </p>
+
+                <%= link_to "Launch Application",
+                    application.url,
+                    class: "btn btn-primary btn-sm",
+                    target: "_blank",
+                    rel: "noopener noreferrer" %>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        <% end %>
+
+      </div>
+
+      <% if @portal_applications.empty? %>
+
+        <div class="alert alert-info mb-0">
+          No corporate applications have been registered.
+        </div>
+
+      <% end %>
+
+    </div>
+
+  </div>
+
+</div>
