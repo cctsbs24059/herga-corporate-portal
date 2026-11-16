@@ -67,6 +67,7 @@ group :test do
   gem "selenium-webdriver"
 end
 
+# Devise manages user sessions, sign-in and sign-out.
 gem "devise", "~> 5.0"
 
 gem "pundit", "~> 2.5"
@@ -76,3 +77,6 @@ gem "pagy", "~> 43.8"
 gem "rubocop", "~> 1.92", group: :development
 
 gem "dotenv-rails", "~> 3.2", groups: [:development, :test]
+
+# Net::LDAP provides encrypted Active Directory connectivity.
+gem "net-ldap"

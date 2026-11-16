@@ -1,74 +1,185 @@
 
 <% content_for :title, "HERGA Corporate Portal" %>
 
-<div class="container-fluid py-4"
-     style="background:#f4f6f9; min-height:100vh;">
+<div class="container-fluid bg-light min-vh-100 py-4 px-3 px-lg-4">
 
-  <!-- Welcome -->
-  <div class="mb-4">
+  <!-- ================================================== -->
+  <!-- CORPORATE DASHBOARD HEADER                         -->
+  <!-- ================================================== -->
 
-    <h2 class="fw-bold" style="color:#243b55;">
-      Corporate Dashboard
-    </h2>
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
 
-    <p class="text-muted">
-      Welcome to HERGA.NET Enterprise Services
-    </p>
+    <div>
+      <h2 class="fw-bold text-dark mb-1">
+        Corporate Dashboard
+      </h2>
+
+      <p class="text-muted mb-0">
+        HERGA.NET Enterprise Services
+      </p>
+    </div>
+
+    <div class="text-md-end">
+
+      <span class="badge bg-primary px-3 py-2">
+        HERGA Corporate Portal
+      </span>
+
+      <div class="small text-muted mt-2">
+        <%= Time.current.strftime("%d %B %Y, %H:%M") %>
+      </div>
+
+    </div>
 
   </div>
 
-  <!-- Statistics -->
+
+  <!-- ================================================== -->
+  <!-- WELCOME BANNER                                     -->
+  <!-- ================================================== -->
+
+  <div class="card bg-primary text-white border-0 shadow-sm mb-4">
+
+    <div class="card-body p-4">
+
+      <div class="row align-items-center g-3">
+
+        <div class="col-lg-9">
+
+          <h3 class="fw-bold mb-2">
+            Welcome to HERGA Corporate Portal
+          </h3>
+
+          <p class="mb-2">
+            Signed in as
+
+            <strong>
+              <%= current_user&.username.presence ||
+                  current_user&.email.presence ||
+                  "Authenticated User" %>
+            </strong>
+          </p>
+
+          <p class="mb-0 opacity-75">
+            Your centralised gateway to corporate
+            applications, enterprise services,
+            Active Directory and network administration.
+          </p>
+
+        </div>
+
+        <div class="col-lg-3 text-lg-end">
+
+          <span class="badge bg-light text-primary px-3 py-2">
+            Secure Corporate Access
+          </span>
+
+          <div class="small mt-2 opacity-75">
+            HERGA.NET
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- ================================================== -->
+  <!-- DASHBOARD STATISTICS                               -->
+  <!-- ================================================== -->
+
   <div class="row g-3 mb-4">
 
-    <div class="col-md-4">
-      <div class="card border-0 shadow-sm">
-        <div class="card-body">
-          <h2 class="fw-bold text-primary">
-            <%= @application_count %>
-          </h2>
-          <p class="text-muted mb-0">
-            Corporate Applications
-          </p>
-        </div>
-      </div>
-    </div>
+    <% [
+      {
+        label: "Corporate Applications",
+        value: @application_count,
+        colour: "primary",
+        description: "Available applications"
+      },
+      {
+        label: "Corporate Announcements",
+        value: @announcement_count,
+        colour: "info",
+        description: "Announcements registered"
+      },
+      {
+        label: "Registered IT Services",
+        value: @service_count,
+        colour: "success",
+        description: "Services registered"
+      },
+      {
+        label: "Infrastructure Modules",
+        value: @infrastructure_modules.size,
+        colour: "secondary",
+        description: "Available and planned modules"
+      }
+    ].each do |stat| %>
 
-    <div class="col-md-4">
-      <div class="card border-0 shadow-sm">
-        <div class="card-body">
-          <h2 class="fw-bold">0</h2>
-          <p class="text-muted mb-0">
-            Corporate Announcements
-          </p>
-        </div>
-      </div>
-    </div>
+      <div class="col-12 col-sm-6 col-xl-3">
 
-    <div class="col-md-4">
-      <div class="card border-0 shadow-sm">
-        <div class="card-body">
-          <h2 class="fw-bold">0</h2>
-          <p class="text-muted mb-0">
-            Registered IT Services
-          </p>
+        <div class="card border-0 shadow-sm h-100">
+
+          <div class="card-body p-4">
+
+            <div class="d-flex align-items-center justify-content-between mb-3">
+
+              <span class="small text-muted fw-semibold">
+                <%= stat[:label] %>
+              </span>
+
+              <span class="badge bg-<%= stat[:colour] %>">
+                HERGA
+              </span>
+
+            </div>
+
+            <h2 class="fw-bold mb-1">
+              <%= stat[:value] %>
+            </h2>
+
+            <p class="small text-muted mb-0">
+              <%= stat[:description] %>
+            </p>
+
+          </div>
+
         </div>
+
       </div>
-    </div>
+
+    <% end %>
 
   </div>
 
-  <!-- Applications -->
-  <div class="card border-0 shadow-sm">
+
+  <!-- ================================================== -->
+  <!-- CORPORATE APPLICATIONS                             -->
+  <!-- ================================================== -->
+
+  <div class="card border-0 shadow-sm mb-4">
 
     <div class="card-header bg-white py-3">
 
-      <div class="d-flex justify-content-between align-items-center">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
 
-        <h5 class="mb-0 fw-bold">
-          Corporate Applications
-        </h5>
+        <div>
 
-        <%= link_to "View All",
+          <h5 class="fw-bold mb-1">
+            Corporate Applications
+          </h5>
+
+          <p class="small text-muted mb-0">
+            Access approved HERGA corporate applications.
+          </p>
+
+        </div>
+
+        <%= link_to "View All Applications",
             portal_applications_path,
             class: "btn btn-outline-primary btn-sm" %>
 
@@ -76,38 +187,172 @@
 
     </div>
 
-    <div class="card-body">
+    <div class="card-body p-4">
+
+      <% if @portal_applications.any? %>
+
+        <div class="row g-3">
+
+          <% @portal_applications.each do |application| %>
+
+            <div class="col-12 col-md-6 col-xl-3">
+
+              <div class="card border h-100">
+
+                <div class="card-body d-flex flex-column p-4">
+
+                  <div class="mb-3">
+
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                      Corporate Application
+                    </span>
+
+                  </div>
+
+                  <h5 class="fw-bold mb-2">
+                    <%= application.name %>
+                  </h5>
+
+                  <p class="text-muted small flex-grow-1">
+                    <%= truncate(
+                          application.description.to_s,
+                          length: 110
+                        ) %>
+                  </p>
+
+                  <div class="mt-auto pt-3">
+
+                    <%= link_to "Launch Application",
+                        application.url,
+                        class: "btn btn-primary w-100",
+                        target: "_blank",
+                        rel: "noopener noreferrer" %>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          <% end %>
+
+        </div>
+
+      <% else %>
+
+        <div class="alert alert-info mb-0">
+          No corporate applications are currently available.
+        </div>
+
+      <% end %>
+
+    </div>
+
+  </div>
+
+
+  <!-- ================================================== -->
+  <!-- INFRASTRUCTURE MANAGEMENT                          -->
+  <!-- ================================================== -->
+
+  <div class="card border-0 shadow-sm mb-4">
+
+    <div class="card-header bg-white py-3">
+
+      <h5 class="fw-bold mb-1">
+        Infrastructure Management
+      </h5>
+
+      <p class="small text-muted mb-0">
+        Enterprise directory, network and infrastructure services.
+      </p>
+
+    </div>
+
+    <div class="card-body p-4">
 
       <div class="row g-3">
 
-        <% @portal_applications.each do |application| %>
+        <% @infrastructure_modules.each do |item| %>
 
-          <div class="col-sm-6 col-lg-3">
+          <div class="col-12 col-md-6 col-xl-4">
 
-            <div class="card h-100 text-center border">
+            <div class="card border h-100">
 
-              <div class="card-body">
+              <div class="card-body d-flex flex-column p-4">
 
-                <div class="mb-3">
-                  <span style="font-size:32px; color:#286090;">
-                    &#9635;
+                <!-- Module header -->
+
+                <div class="d-flex justify-content-between align-items-start mb-3">
+
+                  <span class="badge bg-light text-dark border">
+                    Infrastructure
                   </span>
+
+                  <% if item[:status] == "Available" %>
+
+                    <span class="badge bg-success">
+                      Available
+                    </span>
+
+                  <% else %>
+
+                    <span class="badge bg-secondary">
+                      <%= item[:status] %>
+                    </span>
+
+                  <% end %>
+
                 </div>
 
-                <h5 class="card-title">
-                  <%= application.name %>
-                </h5>
 
-                <p class="card-text text-muted small">
-                  <%= truncate(application.description.to_s,
-                      length:80) %>
+                <!-- Module title -->
+
+                <h6 class="fw-bold mb-2">
+                  <%= item[:title] %>
+                </h6>
+
+
+                <!-- Module description -->
+
+                <p class="text-muted small flex-grow-1">
+                  <%= item[:description] %>
                 </p>
 
-                <%= link_to "Launch Application",
-                    application.url,
-                    class: "btn btn-primary btn-sm",
-                    target: "_blank",
-                    rel: "noopener noreferrer" %>
+
+                <!-- Module action -->
+
+                <div class="mt-auto pt-3">
+
+                  <% if item[:title] == "Active Directory Users" %>
+
+                    <% if portal_admin? %>
+
+                      <%= link_to "Open User Directory",
+                          directory_users_path,
+                          class: "btn btn-outline-primary w-100" %>
+
+                    <% else %>
+
+                      <button class="btn btn-outline-secondary w-100"
+                              disabled>
+                        Administrator Access Required
+                      </button>
+
+                    <% end %>
+
+                  <% else %>
+
+                    <button class="btn btn-outline-secondary w-100"
+                            disabled>
+                      Coming Soon
+                    </button>
+
+                  <% end %>
+
+                </div>
 
               </div>
 
@@ -119,15 +364,79 @@
 
       </div>
 
-      <% if @portal_applications.empty? %>
+    </div>
 
-        <div class="alert alert-info mb-0">
-          No corporate applications have been registered.
+  </div>
+
+
+  <!-- ================================================== -->
+  <!-- CORPORATE PORTAL INFORMATION                       -->
+  <!-- ================================================== -->
+
+  <div class="card border-0 shadow-sm">
+
+    <div class="card-body p-4">
+
+      <div class="row g-3 align-items-center">
+
+        <div class="col-lg-8">
+
+          <h6 class="fw-bold mb-2">
+            HERGA Enterprise Network
+          </h6>
+
+          <p class="text-muted small mb-0">
+            This portal provides authorised access to
+            HERGA corporate applications and infrastructure
+            management services.
+
+            Access is restricted to approved HERGA.NET
+            Active Directory security groups.
+
+            All activity is subject to applicable corporate
+            security policies and monitoring controls.
+          </p>
+
         </div>
 
-      <% end %>
+        <div class="col-lg-4 text-lg-end">
+
+          <span class="badge bg-success px-3 py-2">
+            Authenticated Portal Session
+          </span>
+
+          <div class="small text-muted mt-2">
+            Powered by Ruby on Rails <%= Rails.version %>
+          </div>
+
+          <div class="small text-muted mt-1">
+            HERGA.NET
+          </div>
+
+        </div>
+
+      </div>
 
     </div>
+
+  </div>
+
+
+  <!-- ================================================== -->
+  <!-- CORPORATE FOOTER                                   -->
+  <!-- ================================================== -->
+
+  <div class="text-center text-muted small mt-4">
+
+    HERGA Corporate Portal
+
+    <span class="mx-2">|</span>
+
+    Authorised Access Only
+
+    <span class="mx-2">|</span>
+
+    &copy; <%= Date.current.year %> HERGA
 
   </div>
 

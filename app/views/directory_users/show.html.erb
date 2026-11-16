@@ -1,0 +1,336 @@
+
+<% content_for :title, "HERGA | Directory User Profile" %>
+
+<div class="container-fluid bg-light min-vh-100 py-4 px-3 px-lg-4">
+
+  <!-- PAGE HEADER -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+
+    <div>
+      <h2 class="fw-bold text-dark mb-1">
+        Active Directory User Profile
+      </h2>
+
+      <p class="text-muted mb-0">
+        HERGA.NET Corporate Directory
+      </p>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2">
+      <%= link_to "Back to Directory",
+          directory_users_path,
+          class: "btn btn-outline-secondary" %>
+
+      <%= link_to "Refresh Profile",
+          directory_user_path(@user.username),
+          class: "btn btn-outline-primary" %>
+    </div>
+
+  </div>
+
+  <!-- USER IDENTITY BANNER -->
+  <div class="card bg-primary text-white border-0 shadow-sm mb-4">
+
+    <div class="card-body p-4">
+      <div class="row align-items-center g-3">
+
+        <div class="col-lg-9">
+          <h3 class="fw-bold mb-2">
+            <%= @user.display_name %>
+          </h3>
+
+          <p class="mb-2">
+            HERGA\<%= @user.username %>
+          </p>
+
+          <p class="mb-0 opacity-75">
+            <%= @user.job_title.presence || "Corporate Directory Account" %>
+          </p>
+        </div>
+
+        <div class="col-lg-3 text-lg-end">
+
+          <% if @user.enabled == true %>
+
+            <span class="badge bg-success px-3 py-2">
+              Account Enabled
+            </span>
+
+          <% elsif @user.enabled == false %>
+
+            <span class="badge bg-secondary px-3 py-2">
+              Account Disabled
+            </span>
+
+          <% else %>
+
+            <span class="badge bg-warning text-dark px-3 py-2">
+              Status Unknown
+            </span>
+
+          <% end %>
+
+          <div class="small mt-2 opacity-75">
+            Active Directory Account
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ACCOUNT DETAILS AND GROUPS -->
+  <div class="row g-4">
+
+    <!-- ACCOUNT INFORMATION -->
+    <div class="col-12 col-lg-7">
+
+      <div class="card border-0 shadow-sm h-100">
+
+        <div class="card-header bg-white py-3">
+          <h5 class="fw-bold mb-0">
+            Account Information
+          </h5>
+        </div>
+
+        <div class="card-body p-4">
+
+          <table class="table table-borderless align-middle mb-0">
+            <tbody>
+
+              <tr>
+                <th scope="row" class="text-muted w-25">
+                  Display Name
+                </th>
+                <td class="fw-semibold">
+                  <%= @user.display_name %>
+                </td>
+              </tr>
+
+              <tr>
+                <th scope="row" class="text-muted">
+                  Username
+                </th>
+                <td>
+                  <code><%= @user.username %></code>
+                </td>
+              </tr>
+
+              <tr>
+                <th scope="row" class="text-muted">
+                  Domain
+                </th>
+                <td>
+                  HERGA.NET
+                </td>
+              </tr>
+
+              <tr>
+                <th scope="row" class="text-muted">
+                  Email Address
+                </th>
+                <td>
+                  <% if @user.email.present? %>
+                    <%= mail_to @user.email, @user.email %>
+                  <% else %>
+                    <span class="text-muted">
+                      Not specified
+                    </span>
+                  <% end %>
+                </td>
+              </tr>
+
+              <tr>
+                <th scope="row" class="text-muted">
+                  Department
+                </th>
+                <td>
+                  <%= @user.department.presence || "Not specified" %>
+                </td>
+              </tr>
+
+              <tr>
+                <th scope="row" class="text-muted">
+                  Job Title
+                </th>
+                <td>
+                  <%= @user.job_title.presence || "Not specified" %>
+                </td>
+              </tr>
+
+              <tr>
+                <th scope="row" class="text-muted">
+                  Account Status
+                </th>
+                <td>
+
+                  <% if @user.enabled == true %>
+
+                    <span class="badge bg-success">
+                      Enabled
+                    </span>
+
+                  <% elsif @user.enabled == false %>
+
+                    <span class="badge bg-secondary">
+                      Disabled
+                    </span>
+
+                  <% else %>
+
+                    <span class="badge bg-warning text-dark">
+                      Unknown
+                    </span>
+
+                  <% end %>
+
+                </td>
+              </tr>
+
+            </tbody>
+          </table>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- SECURITY GROUP MEMBERSHIPS -->
+    <div class="col-12 col-lg-5">
+
+      <div class="card border-0 shadow-sm h-100">
+
+        <div class="card-header bg-white py-3">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+
+            <h5 class="fw-bold mb-0">
+              Security Group Memberships
+            </h5>
+
+            <span class="badge bg-primary">
+              <%= (@user.groups || []).size %>
+            </span>
+
+          </div>
+        </div>
+
+        <div class="card-body p-4">
+
+          <p class="text-muted small mb-3">
+            Direct Active Directory group memberships.
+            Nested group memberships are not included.
+          </p>
+
+          <% if @user.groups.present? %>
+
+            <ul class="list-group list-group-flush">
+
+              <% @user.groups.each do |group| %>
+
+                <li class="list-group-item d-flex align-items-center px-0">
+
+                  <span class="badge bg-light text-dark border me-2">
+                    AD
+                  </span>
+
+                  <span class="fw-semibold text-break">
+                    <%= group %>
+                  </span>
+
+                </li>
+
+              <% end %>
+
+            </ul>
+
+          <% else %>
+
+            <div class="alert alert-info mb-0">
+              No direct security group memberships
+              were returned for this account.
+            </div>
+
+          <% end %>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- DIRECTORY OBJECT INFORMATION -->
+  <div class="card border-0 shadow-sm mt-4">
+
+    <div class="card-header bg-white py-3">
+      <h5 class="fw-bold mb-0">
+        Active Directory Object Information
+      </h5>
+    </div>
+
+    <div class="card-body p-4">
+
+      <div class="row g-3">
+
+        <div class="col-12 col-md-6">
+          <p class="text-muted small mb-1">
+            Directory Domain
+          </p>
+          <p class="fw-semibold mb-0">
+            HERGA.NET
+          </p>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <p class="text-muted small mb-1">
+            Directory Object Type
+          </p>
+          <p class="fw-semibold mb-0">
+            Active Directory User
+          </p>
+        </div>
+
+        <div class="col-12">
+          <p class="text-muted small mb-1">
+            Distinguished Name (DN)
+          </p>
+
+          <div class="bg-light border rounded p-3">
+            <code class="text-break">
+              <%= @user.dn %>
+            </code>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- SECURITY NOTICE -->
+  <div class="alert alert-secondary mt-4 mb-0">
+
+    <strong>Read-Only Directory Access</strong>
+
+    <p class="mb-0 mt-2">
+      This profile is retrieved from HERGA.NET Active Directory.
+      Account information and group memberships are displayed
+      for authorised administrative review only.
+
+      No account modifications can be performed from this page.
+    </p>
+
+  </div>
+
+  <!-- FOOTER -->
+  <div class="text-center text-muted small mt-4">
+
+    HERGA Corporate Portal
+    <span class="mx-2">|</span>
+    Active Directory User Profile
+    <span class="mx-2">|</span>
+    &copy; <%= Date.current.year %> HERGA
+
+  </div>
+
+</div>

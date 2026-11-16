@@ -20,7 +20,7 @@ default: &default
   max_connections: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
 
   # Remote PostgreSQL Server
-  host: 10.1.10.7
+  host: <%= ENV.fetch("HERGA_DB_HOST") %>
   port: 5432
 
   # Database Credentials
@@ -95,8 +95,6 @@ production:
   primary: &primary_production
     <<: *default
     database: herga_portal_production
-    username: herga_portal
-    password: <%= ENV["HERGA_PORTAL_DATABASE_PASSWORD"] %>
   cache:
     <<: *primary_production
     database: herga_portal_production_cache

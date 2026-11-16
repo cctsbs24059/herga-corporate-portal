@@ -1,0 +1,90 @@
+
+<%# HERGA Corporate Portal — Active Directory Login %>
+
+<% provide(:title, "Domain Login") %>
+
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-md-7 col-lg-5">
+
+      <div class="card border-0 shadow-sm">
+
+        <%# Login form heading. %>
+        <div class="card-header bg-primary text-white py-4">
+          <h4 class="mb-1">
+            <i class="bi bi-shield-lock me-2"></i>
+            HERGA Corporate Portal
+          </h4>
+
+          <small>
+            Active Directory Authentication
+          </small>
+        </div>
+
+        <div class="card-body p-4">
+
+          <%# Display authentication failures. %>
+          <% if flash[:alert].present? %>
+            <div class="alert alert-danger" role="alert">
+              <%= flash[:alert] %>
+            </div>
+          <% end %>
+
+          <p class="text-muted">
+            Sign in using your HERGA.NET domain credentials.
+          </p>
+
+          <%# Submit credentials to the custom Devise controller. %>
+          <%= form_with url: user_session_path,
+                        scope: :user,
+                        method: :post,
+                        local: true do |f| %>
+
+            <%# Windows domain username. %>
+            <div class="mb-3">
+              <%= f.label :username,
+                          "Domain Username",
+                          class: "form-label fw-semibold" %>
+
+              <%= f.text_field :username,
+                               class: "form-control",
+                               placeholder: "HERGA\\username",
+                               autocomplete: "username",
+                               required: true,
+                               autofocus: true %>
+            </div>
+
+            <%# Active Directory password. %>
+            <div class="mb-4">
+              <%= f.label :password,
+                          "Domain Password",
+                          class: "form-label fw-semibold" %>
+
+              <%= f.password_field :password,
+                                   class: "form-control",
+                                   autocomplete: "current-password",
+                                   required: true %>
+            </div>
+
+            <%# Submit the login request. %>
+            <div class="d-grid">
+              <%= f.submit "Sign In",
+                           class: "btn btn-primary btn-lg" %>
+            </div>
+
+          <% end %>
+
+        </div>
+
+        <div class="card-footer text-center bg-light py-3">
+          <small class="text-muted">
+            Authorised HERGA personnel only.
+            All access is subject to corporate security policies.
+          </small>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
