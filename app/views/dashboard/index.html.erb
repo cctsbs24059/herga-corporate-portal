@@ -343,6 +343,23 @@
 
                     <% end %>
 
+                  <% elsif item[:title] == "Security Groups" %>
+
+                    <% if portal_admin? %>
+
+                      <%= link_to "Open Security Groups",
+                          directory_groups_path,
+                          class: "btn btn-outline-primary w-100" %>
+
+                    <% else %>
+
+                      <button class="btn btn-outline-secondary w-100"
+                              disabled>
+                        Administrator Access Required
+                      </button>
+
+                    <% end %>
+
                   <% else %>
 
                     <button class="btn btn-outline-secondary w-100"

@@ -1,0 +1,585 @@
+
+<% content_for :title, "HERGA | Active Directory Security Groups" %>
+
+<div class="container-fluid bg-light min-vh-100 py-4 px-3 px-lg-4">
+
+  <!-- ================================================== -->
+  <!-- PAGE HEADER                                        -->
+  <!-- ================================================== -->
+
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+
+    <div>
+      <h2 class="fw-bold text-dark mb-1">
+        Active Directory Security Groups
+      </h2>
+
+      <p class="text-muted mb-0">
+        HERGA.NET Corporate Directory
+      </p>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2">
+
+      <%= link_to "Corporate Dashboard",
+          root_path,
+          class: "btn btn-outline-secondary" %>
+
+      <%= link_to "Refresh Directory",
+          directory_groups_path(q: @query.presence),
+          class: "btn btn-outline-primary" %>
+
+    </div>
+
+  </div>
+
+
+  <!-- ================================================== -->
+  <!-- DIRECTORY INFORMATION BANNER                       -->
+  <!-- ================================================== -->
+
+  <div class="card bg-primary text-white border-0 shadow-sm mb-4">
+
+    <div class="card-body p-4">
+
+      <div class="row align-items-center g-3">
+
+        <div class="col-lg-9">
+
+          <h4 class="fw-bold mb-2">
+            HERGA.NET Active Directory
+          </h4>
+
+          <p class="mb-0 opacity-75">
+            Browse and inspect corporate security groups,
+            group classifications, descriptions and
+            Active Directory membership information.
+          </p>
+
+        </div>
+
+        <div class="col-lg-3 text-lg-end">
+
+          <span class="badge bg-light text-primary px-3 py-2">
+            Read-Only Directory
+          </span>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- ================================================== -->
+  <!-- DIRECTORY ERROR                                    -->
+  <!-- ================================================== -->
+
+  <% if @directory_error %>
+
+    <div class="alert alert-danger" role="alert">
+
+      <h5 class="alert-heading fw-bold">
+        Active Directory Unavailable
+      </h5>
+
+      <p class="mb-0">
+        Security groups could not be retrieved from HERGA.NET.
+        Please verify the LDAPS connection and directory
+        service account configuration.
+      </p>
+
+    </div>
+
+  <% else %>
+
+
+    <!-- ================================================== -->
+    <!-- DIRECTORY STATISTICS                               -->
+    <!-- ================================================== -->
+
+    <div class="row g-3 mb-4">
+
+      <% [
+        {
+          label: "Groups Returned",
+          value: @group_count,
+          colour: "primary",
+          description: "Security groups retrieved"
+        },
+        {
+          label: "Global Groups",
+          value: @global_count,
+          colour: "success",
+          description: "Global security groups"
+        },
+        {
+          label: "Universal Groups",
+          value: @universal_count,
+          colour: "info",
+          description: "Universal security groups"
+        },
+        {
+          label: "Domain Local Groups",
+          value: @domain_local_count,
+          colour: "secondary",
+          description: "Domain local security groups"
+        }
+      ].each do |stat| %>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+
+          <div class="card border-0 shadow-sm h-100">
+
+            <div class="card-body p-4">
+
+              <div class="small text-muted fw-semibold mb-2">
+                <%= stat[:label] %>
+              </div>
+
+              <h2 class="fw-bold text-<%= stat[:colour] %> mb-1">
+                <%= stat[:value] %>
+              </h2>
+
+              <p class="small text-muted mb-0">
+                <%= stat[:description] %>
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      <% end %>
+
+    </div>
+
+
+    <!-- ================================================== -->
+    <!-- SECURITY GROUP SEARCH                              -->
+    <!-- ================================================== -->
+
+    <div class="card border-0 shadow-sm mb-4">
+
+      <div class="card-header bg-white py-3">
+
+        <h5 class="fw-bold mb-0">
+          Search Security Groups
+        </h5>
+
+      </div>
+
+      <div class="card-body p-4">
+
+        <%= form_with url: directory_groups_path,
+                      method: :get,
+                      local: true do %>
+
+          <div class="row g-3 align-items-end">
+
+            <div class="col-12 col-lg-9">
+
+              <label for="q" class="form-label fw-semibold">
+                Group Name, Account Name or Description
+              </label>
+
+              <%= text_field_tag :q,
+                  @query,
+                  id: "q",
+                  class: "form-control",
+                  maxlength: 100,
+                  placeholder: "Search HERGA.NET security groups..." %>
+
+            </div>
+
+            <div class="col-12 col-lg-3">
+
+              <div class="d-flex gap-2">
+
+                <%= submit_tag "Search",
+                    class: "btn btn-primary flex-fill" %>
+
+                <%= link_to "Clear",
+                    directory_groups_path,
+                    class: "btn btn-outline-secondary" %>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        <% end %>
+
+      </div>
+
+    </div>
+
+
+    <!-- ================================================== -->
+    <!-- SECURITY GROUP DIRECTORY TABLE                     -->
+    <!-- ================================================== -->
+
+    <div class="card border-0 shadow-sm">
+
+      <div class="card-header bg-white py-3">
+
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+
+          <h5 class="fw-bold mb-0">
+            Security Group Directory
+          </h5>
+
+          <span class="badge bg-primary px-3 py-2">
+            <%= @group_count %> Groups Returned
+          </span>
+
+        </div>
+
+      </div>
+
+      <div class="card-body p-0">
+
+        <div class="table-responsive">
+
+          <table class="table table-hover align-middle mb-0">
+
+            <thead class="table-light">
+
+              <tr>
+                <th class="ps-3">Group Name</th>
+                <th>Account Name</th>
+                <th>Group Scope</th>
+                <th>Description</th>
+                <th class="text-center">Type</th>
+                <th class="text-end pe-3">Action</th>
+              </tr>
+
+            </thead>
+
+            <tbody>
+
+              <% if @groups.any? %>
+
+                <% @groups.each do |group| %>
+
+                  <tr>
+
+                    <!-- GROUP NAME -->
+
+                    <td class="ps-3">
+
+                      <span class="fw-semibold">
+                        <%= group.name %>
+                      </span>
+
+                    </td>
+
+
+                    <!-- ACCOUNT NAME -->
+
+                    <td>
+
+                      <code>
+                        <%= group.account_name %>
+                      </code>
+
+                    </td>
+
+
+                    <!-- GROUP SCOPE -->
+                    <!-- Corrected if/elsif logic -->
+
+                    <td>
+
+                      <% if group.scope == "Global" %>
+
+                        <span class="badge bg-success">
+                          Global
+                        </span>
+
+                      <% elsif group.scope == "Universal" %>
+
+                        <span class="badge bg-info text-dark">
+                          Universal
+                        </span>
+
+                      <% elsif group.scope == "Domain Local" %>
+
+                        <span class="badge bg-secondary">
+                          Domain Local
+                        </span>
+
+                      <% else %>
+
+                        <span class="badge bg-light text-dark border">
+                          Other
+                        </span>
+
+                      <% end %>
+
+                    </td>
+
+
+                    <!-- DESCRIPTION -->
+
+                    <td class="text-muted small">
+
+                      <%= truncate(
+                            group.description.presence || "—",
+                            length: 75
+                          ) %>
+
+                    </td>
+
+
+                    <!-- GROUP TYPE -->
+
+                    <td class="text-center">
+
+                      <% if group.security %>
+
+                        <span class="badge bg-primary">
+                          Security
+                        </span>
+
+                      <% else %>
+
+                        <span class="badge bg-secondary">
+                          Distribution
+                        </span>
+
+                      <% end %>
+
+                    </td>
+
+
+                    <!-- ACTION -->
+
+                    <td class="text-end pe-3">
+
+                      <%= link_to "View Group",
+                          directory_group_path(group.account_name),
+                          class: "btn btn-sm btn-outline-primary" %>
+
+                    </td>
+
+                  </tr>
+
+                <% end %>
+
+              <% else %>
+
+                <tr>
+
+                  <td colspan="6" class="text-center py-5">
+
+                    <h6 class="fw-bold mb-2">
+                      No Security Groups Found
+                    </h6>
+
+                    <p class="text-muted mb-3">
+                      No Active Directory security groups
+                      matched your search.
+                    </p>
+
+                    <%= link_to "Show All Groups",
+                        directory_groups_path,
+                        class: "btn btn-outline-primary" %>
+
+                  </td>
+
+                </tr>
+
+              <% end %>
+
+            </tbody>
+
+          </table>
+
+        </div>
+
+      </div>
+
+
+      <!-- ================================================== -->
+      <!-- PAGINATION FOOTER                                 -->
+      <!-- ================================================== -->
+
+      <div class="card-footer bg-white py-3">
+
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+
+          <span class="small text-muted">
+
+            <% if @group_count > 0 %>
+
+              Showing
+              <%= ((@current_page - 1) * 25) + 1 %>–<%= [@current_page * 25, @group_count].min %>
+              of <%= @group_count %> returned groups
+
+            <% else %>
+
+              No groups to display
+
+            <% end %>
+
+          </span>
+
+          <span class="small text-muted">
+            Page <%= @current_page %> of <%= @total_pages %>
+          </span>
+
+        </div>
+
+
+        <% if @total_pages > 1 %>
+
+          <nav class="mt-3" aria-label="Security group pagination">
+
+            <ul class="pagination pagination-sm justify-content-center flex-wrap mb-0">
+
+              <!-- PREVIOUS -->
+
+              <li class="page-item <%= 'disabled' if @current_page == 1 %>">
+
+                <% if @current_page > 1 %>
+
+                  <%= link_to "Previous",
+                      directory_groups_path(
+                        q: @query.presence,
+                        page: @current_page - 1
+                      ),
+                      class: "page-link" %>
+
+                <% else %>
+
+                  <span class="page-link">
+                    Previous
+                  </span>
+
+                <% end %>
+
+              </li>
+
+
+              <!-- PAGE NUMBERS -->
+
+              <% (1..@total_pages).each do |page_number| %>
+
+                <li class="page-item <%= 'active' if page_number == @current_page %>">
+
+                  <%= link_to page_number,
+                      directory_groups_path(
+                        q: @query.presence,
+                        page: page_number
+                      ),
+                      class: "page-link",
+                      aria: {
+                        current: (
+                          page_number == @current_page ? "page" : nil
+                        )
+                      } %>
+
+                </li>
+
+              <% end %>
+
+
+              <!-- NEXT -->
+
+              <li class="page-item <%= 'disabled' if @current_page == @total_pages %>">
+
+                <% if @current_page < @total_pages %>
+
+                  <%= link_to "Next",
+                      directory_groups_path(
+                        q: @query.presence,
+                        page: @current_page + 1
+                      ),
+                      class: "page-link" %>
+
+                <% else %>
+
+                  <span class="page-link">
+                    Next
+                  </span>
+
+                <% end %>
+
+              </li>
+
+            </ul>
+
+          </nav>
+
+        <% end %>
+
+      </div>
+
+    </div>
+
+
+    <!-- ================================================== -->
+    <!-- DIRECTORY RESULT LIMIT NOTICE                      -->
+    <!-- ================================================== -->
+
+    <% if @group_count >= 500 %>
+
+      <div class="alert alert-info mt-3 mb-0">
+
+        <strong>Directory Result Limit:</strong>
+
+        The current directory query returns a maximum
+        of 500 security groups.
+
+        Refine your search to locate additional groups.
+
+      </div>
+
+    <% end %>
+
+  <% end %>
+
+
+  <!-- ================================================== -->
+  <!-- SECURITY INFORMATION                               -->
+  <!-- ================================================== -->
+
+  <div class="alert alert-secondary mt-4 mb-0">
+
+    <strong>Security Notice:</strong>
+
+    This directory is available to authorised HERGA Portal
+    administrators only.
+
+    Information is retrieved from HERGA.NET Active Directory
+    using read-only LDAP operations.
+
+    Security group changes are not permitted through this interface.
+
+  </div>
+
+
+  <!-- ================================================== -->
+  <!-- FOOTER                                             -->
+  <!-- ================================================== -->
+
+  <div class="text-center text-muted small mt-4">
+
+    HERGA Corporate Portal
+
+    <span class="mx-2">|</span>
+
+    Active Directory Security Group Management
+
+    <span class="mx-2">|</span>
+
+    &copy; <%= Date.current.year %> HERGA
+
+  </div>
+
+</div>

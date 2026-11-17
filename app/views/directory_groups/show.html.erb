@@ -1,0 +1,286 @@
+
+<% provide(:title, "Security Group Details") %>
+
+<div class="container-fluid py-4">
+
+  <!-- HEADER -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+
+    <div>
+      <h2 class="fw-bold mb-1">
+        <%= @group.name %>
+      </h2>
+
+      <p class="text-muted mb-0">
+        Active Directory Security Group | HERGA.NET
+      </p>
+    </div>
+
+    <div class="d-flex gap-2">
+      <%= link_to "Back to Groups",
+          directory_groups_path,
+          class: "btn btn-outline-secondary" %>
+
+      <%= link_to "Refresh",
+          directory_group_path(@group.account_name),
+          class: "btn btn-outline-primary" %>
+    </div>
+
+  </div>
+
+  <!-- GROUP SUMMARY -->
+  <div class="row g-3 mb-4">
+
+    <div class="col-12 col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="text-muted small mb-2">
+            Group Scope
+          </div>
+
+          <h4 class="fw-bold mb-0">
+            <%= @group.scope %>
+          </h4>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="text-muted small mb-2">
+            Group Type
+          </div>
+
+          <h4 class="fw-bold mb-0">
+            <%= @group.security ? "Security" : "Distribution" %>
+          </h4>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="text-muted small mb-2">
+            Direct Members Displayed
+          </div>
+
+          <h4 class="fw-bold mb-0">
+            <%= @group.members.length %>
+          </h4>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- GROUP PROPERTIES -->
+  <div class="card border-0 shadow-sm mb-4">
+
+    <div class="card-header bg-white py-3">
+      <h5 class="mb-0">
+        Group Properties
+      </h5>
+    </div>
+
+    <div class="card-body">
+
+      <dl class="row mb-0">
+
+        <dt class="col-sm-3 mb-2">
+          Group Name
+        </dt>
+        <dd class="col-sm-9 mb-2">
+          <%= @group.name %>
+        </dd>
+
+        <dt class="col-sm-3 mb-2">
+          Account Name
+        </dt>
+        <dd class="col-sm-9 mb-2">
+          <code><%= @group.account_name %></code>
+        </dd>
+
+        <dt class="col-sm-3 mb-2">
+          Description
+        </dt>
+        <dd class="col-sm-9 mb-2">
+          <%= @group.description.presence || "Not specified" %>
+        </dd>
+
+        <dt class="col-sm-3 mb-2">
+          Email
+        </dt>
+        <dd class="col-sm-9 mb-2">
+          <%= @group.email.presence || "Not specified" %>
+        </dd>
+
+        <dt class="col-sm-3 mb-2">
+          Group Scope
+        </dt>
+        <dd class="col-sm-9 mb-2">
+          <span class="badge bg-secondary">
+            <%= @group.scope %>
+          </span>
+        </dd>
+
+        <dt class="col-sm-3 mb-2">
+          Distinguished Name
+        </dt>
+        <dd class="col-sm-9 mb-2">
+          <code class="text-break">
+            <%= @group.dn %>
+          </code>
+        </dd>
+
+      </dl>
+
+    </div>
+  </div>
+
+  <!-- GROUP MEMBERS -->
+  <div class="card border-0 shadow-sm">
+
+    <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
+
+      <h5 class="mb-0">
+        Direct Group Membership
+      </h5>
+
+      <span class="badge bg-primary">
+        <%= @group.members.length %> displayed
+      </span>
+
+    </div>
+
+    <% if @group.members_truncated %>
+
+      <div class="alert alert-warning rounded-0 mb-0">
+        This group exceeds the current display limit of
+        200 members. The list below is incomplete.
+      </div>
+
+    <% end %>
+
+    <div class="table-responsive">
+
+      <table class="table table-hover align-middle mb-0">
+
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Member Name</th>
+            <th>Account Name</th>
+            <th>Object Type</th>
+            <th>Distinguished Name</th>
+            <th class="text-end pe-3">Action</th>
+          </tr>
+        </thead>
+
+        <tbody>
+
+          <% if @group.members.any? %>
+
+            <% @group.members.each do |member| %>
+
+              <tr>
+
+                <td class="ps-3 fw-semibold">
+                  <%= member.name %>
+                </td>
+
+                <td>
+                  <code>
+                    <%= member.account_name.presence || "—" %>
+                  </code>
+                </td>
+
+                <td>
+                  <% if member.object_type == "User" %>
+                    <span class="badge bg-primary">
+                      User
+                    </span>
+                  <% elsif member.object_type == "Group" %>
+                    <span class="badge bg-warning text-dark">
+                      Nested Group
+                    </span>
+                  <% elsif member.object_type == "Computer" %>
+                    <span class="badge bg-info text-dark">
+                      Computer
+                    </span>
+                  <% else %>
+                    <span class="badge bg-secondary">
+                      <%= member.object_type %>
+                    </span>
+                  <% end %>
+                </td>
+
+                <td class="small text-muted">
+                  <span class="text-break">
+                    <%= member.dn %>
+                  </span>
+                </td>
+
+                <td class="text-end pe-3">
+
+                  <% if member.object_type == "User" && member.account_name.present? %>
+
+                    <%= link_to "View User",
+                        directory_user_path(member.account_name),
+                        class: "btn btn-sm btn-outline-primary" %>
+
+                  <% elsif member.object_type == "Group" && member.account_name.present? %>
+
+                    <%= link_to "View Group",
+                        directory_group_path(member.account_name),
+                        class: "btn btn-sm btn-outline-primary" %>
+
+                  <% else %>
+
+                    <span class="text-muted small">
+                      —
+                    </span>
+
+                  <% end %>
+
+                </td>
+
+              </tr>
+
+            <% end %>
+
+          <% else %>
+
+            <tr>
+              <td colspan="5" class="text-center text-muted py-5">
+                No direct members were returned for this group.
+              </td>
+            </tr>
+
+          <% end %>
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+    <div class="card-footer bg-white py-3">
+
+      <div class="d-flex justify-content-between align-items-center">
+
+        <span class="small text-muted">
+          Read-only Active Directory information
+        </span>
+
+        <%= link_to "Security Groups",
+            directory_groups_path,
+            class: "btn btn-sm btn-outline-secondary" %>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>

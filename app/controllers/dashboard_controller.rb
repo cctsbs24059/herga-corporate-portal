@@ -54,13 +54,13 @@ class DashboardController < ApplicationController
         title: "Active Directory Users",
         description: "Browse domain user accounts and account status.",
         icon: "bi-people",
-        status: "Planned"
+        status: "Available"
       },
       {
         title: "Security Groups",
         description: "Review Active Directory security groups and memberships.",
         icon: "bi-shield-lock",
-        status: "Planned"
+        status: "Available"
       },
       {
         title: "Domain Computers",
