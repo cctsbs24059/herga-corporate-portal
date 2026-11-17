@@ -66,7 +66,7 @@ class DashboardController < ApplicationController
         title: "Domain Computers",
         description: "Browse domain-joined computers and workstations.",
         icon: "bi-pc-display",
-        status: "Planned"
+        status: "Available"
       },
       {
         title: "Infrastructure Servers",

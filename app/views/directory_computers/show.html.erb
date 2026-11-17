@@ -1,0 +1,206 @@
+
+<% content_for :title, "HERGA | Computer Details" %>
+
+<div class="container-fluid bg-light min-vh-100 py-4 px-3 px-lg-4">
+
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+      <h2 class="fw-bold text-dark mb-1">
+        <%= @computer.name %>
+      </h2>
+      <p class="text-muted mb-0">
+        Active Directory Computer Details
+      </p>
+    </div>
+
+    <div class="d-flex gap-2">
+      <%= link_to "Back to Computers",
+          directory_computers_path,
+          class: "btn btn-outline-secondary" %>
+
+      <%= link_to "Refresh",
+          directory_computer_path(@computer.account_name),
+          class: "btn btn-outline-primary" %>
+    </div>
+  </div>
+
+  <div class="card bg-primary text-white border-0 shadow-sm mb-4">
+    <div class="card-body p-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+          <h4 class="fw-bold mb-2">
+            <%= @computer.name %>
+          </h4>
+          <p class="mb-0 opacity-75">
+            <%= @computer.dns_hostname.presence || "DNS hostname not recorded" %>
+          </p>
+        </div>
+
+        <% if @computer.enabled %>
+          <span class="badge bg-success px-3 py-2">
+            Enabled Account
+          </span>
+        <% else %>
+          <span class="badge bg-secondary px-3 py-2">
+            Disabled Account
+          </span>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+
+    <!-- COMPUTER IDENTITY -->
+
+    <div class="col-12 col-xl-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white py-3">
+          <h5 class="fw-bold mb-0">
+            Computer Identity
+          </h5>
+        </div>
+
+        <div class="card-body p-4">
+          <dl class="row mb-0">
+            <dt class="col-sm-5">Computer Name</dt>
+            <dd class="col-sm-7"><%= @computer.name %></dd>
+
+            <dt class="col-sm-5">Account Name</dt>
+            <dd class="col-sm-7"><%= @computer.account_name %></dd>
+
+            <dt class="col-sm-5">DNS Hostname</dt>
+            <dd class="col-sm-7">
+              <%= @computer.dns_hostname.presence || "Not recorded" %>
+            </dd>
+
+            <dt class="col-sm-5">Description</dt>
+            <dd class="col-sm-7">
+              <%= @computer.description.presence || "Not recorded" %>
+            </dd>
+
+            <dt class="col-sm-5">Account Status</dt>
+            <dd class="col-sm-7">
+              <%= @computer.enabled ? "Enabled" : "Disabled" %>
+            </dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPERATING SYSTEM -->
+
+    <div class="col-12 col-xl-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white py-3">
+          <h5 class="fw-bold mb-0">
+            Operating System
+          </h5>
+        </div>
+
+        <div class="card-body p-4">
+          <dl class="row mb-0">
+            <dt class="col-sm-5">Operating System</dt>
+            <dd class="col-sm-7">
+              <%= @computer.operating_system.presence || "Unknown" %>
+            </dd>
+
+            <dt class="col-sm-5">OS Version</dt>
+            <dd class="col-sm-7">
+              <%= @computer.operating_system_version.presence || "Not recorded" %>
+            </dd>
+
+            <dt class="col-sm-5">Service Pack</dt>
+            <dd class="col-sm-7">
+              <%= @computer.operating_system_service_pack.presence || "Not recorded" %>
+            </dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <!-- DIRECTORY ACTIVITY -->
+
+    <div class="col-12 col-xl-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white py-3">
+          <h5 class="fw-bold mb-0">
+            Active Directory Activity
+          </h5>
+        </div>
+
+        <div class="card-body p-4">
+          <dl class="row mb-0">
+            <dt class="col-sm-5">Last Logon (Approx.)</dt>
+            <dd class="col-sm-7">
+              <%= @computer.last_logon ?
+                  l(@computer.last_logon, format: :long) :
+                  "Never / Not Recorded" %>
+            </dd>
+
+            <dt class="col-sm-5">Password Last Set</dt>
+            <dd class="col-sm-7">
+              <%= @computer.password_last_set ?
+                  l(@computer.password_last_set, format: :long) :
+                  "Not recorded" %>
+            </dd>
+
+            <dt class="col-sm-5">Account Created</dt>
+            <dd class="col-sm-7">
+              <%= @computer.when_created ?
+                  l(@computer.when_created, format: :long) :
+                  "Not recorded" %>
+            </dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <!-- DIRECTORY LOCATION -->
+
+    <div class="col-12 col-xl-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white py-3">
+          <h5 class="fw-bold mb-0">
+            Directory Location
+          </h5>
+        </div>
+
+        <div class="card-body p-4">
+          <p class="small text-muted mb-2">
+            Distinguished Name
+          </p>
+
+          <div class="border rounded bg-light p-3">
+            <code class="text-break">
+              <%= @computer.dn %>
+            </code>
+          </div>
+
+          <p class="small text-muted mt-3 mb-0">
+            This identifies the computer object's location
+            within the HERGA.NET Active Directory hierarchy.
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="alert alert-info mt-4 mb-0">
+    <strong>Directory Information:</strong>
+    Last logon is derived from the replicated
+    lastLogonTimestamp attribute and may be delayed.
+    Operating system attributes are directory-reported values,
+    not live endpoint measurements.
+  </div>
+
+  <div class="text-center text-muted small mt-4">
+    HERGA Corporate Portal
+    <span class="mx-2">|</span>
+    Read-Only Computer Directory
+    <span class="mx-2">|</span>
+    &copy; <%= Date.current.year %> HERGA
+  </div>
+
+</div>

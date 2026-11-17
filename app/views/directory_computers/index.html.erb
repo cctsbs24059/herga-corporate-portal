@@ -1,0 +1,348 @@
+
+<% content_for :title, "HERGA | Active Directory Computers" %>
+
+<div class="container-fluid bg-light min-vh-100 py-4 px-3 px-lg-4">
+
+  <!-- PAGE HEADER -->
+
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+      <h2 class="fw-bold text-dark mb-1">
+        Active Directory Computers
+      </h2>
+      <p class="text-muted mb-0">
+        HERGA.NET Corporate Directory
+      </p>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2">
+      <%= link_to "Corporate Dashboard",
+          root_path,
+          class: "btn btn-outline-secondary" %>
+
+      <%= link_to "Refresh Directory",
+          directory_computers_path(q: @query.presence),
+          class: "btn btn-outline-primary" %>
+    </div>
+  </div>
+
+  <!-- INFORMATION BANNER -->
+
+  <div class="card bg-primary text-white border-0 shadow-sm mb-4">
+    <div class="card-body p-4">
+      <div class="row align-items-center g-3">
+        <div class="col-lg-9">
+          <h4 class="fw-bold mb-2">
+            HERGA.NET Computer Inventory
+          </h4>
+          <p class="mb-0 opacity-75">
+            Browse domain-joined computer accounts,
+            operating systems, directory account status
+            and Active Directory registration information.
+          </p>
+        </div>
+
+        <div class="col-lg-3 text-lg-end">
+          <span class="badge bg-light text-primary px-3 py-2">
+            Read-Only Directory
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <% if @directory_error %>
+
+    <div class="alert alert-danger" role="alert">
+      <h5 class="alert-heading fw-bold">
+        Active Directory Unavailable
+      </h5>
+      <p class="mb-0">
+        Computer accounts could not be retrieved from HERGA.NET.
+        Please verify the LDAPS connection and directory service account.
+      </p>
+    </div>
+
+  <% else %>
+
+    <!-- STATISTICS -->
+
+    <div class="row g-3 mb-4">
+
+      <% [
+        {
+          label: "Computers Returned",
+          value: @computer_count,
+          colour: "primary",
+          description: "Computer accounts retrieved"
+        },
+        {
+          label: "Enabled Accounts",
+          value: @enabled_count,
+          colour: "success",
+          description: "Enabled computer accounts"
+        },
+        {
+          label: "Disabled Accounts",
+          value: @disabled_count,
+          colour: "secondary",
+          description: "Disabled computer accounts"
+        },
+        {
+          label: "Windows Computers",
+          value: @windows_count,
+          colour: "info",
+          description: "Reported Windows operating systems"
+        }
+      ].each do |stat| %>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-body p-4">
+              <div class="small text-muted fw-semibold mb-2">
+                <%= stat[:label] %>
+              </div>
+              <h2 class="fw-bold text-<%= stat[:colour] %> mb-1">
+                <%= stat[:value] %>
+              </h2>
+              <p class="small text-muted mb-0">
+                <%= stat[:description] %>
+              </p>
+            </div>
+          </div>
+        </div>
+
+      <% end %>
+
+    </div>
+
+    <!-- SEARCH -->
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white py-3">
+        <h5 class="fw-bold mb-0">
+          Search Domain Computers
+        </h5>
+      </div>
+
+      <div class="card-body p-4">
+        <%= form_with url: directory_computers_path,
+                      method: :get,
+                      local: true do %>
+
+          <div class="row g-3 align-items-end">
+            <div class="col-12 col-lg-9">
+              <label for="q" class="form-label fw-semibold">
+                Computer Name, DNS Hostname, Operating System or Description
+              </label>
+
+              <%= text_field_tag :q,
+                  @query,
+                  id: "q",
+                  class: "form-control",
+                  maxlength: 100,
+                  placeholder: "Search HERGA.NET computers..." %>
+            </div>
+
+            <div class="col-12 col-lg-3">
+              <div class="d-flex gap-2">
+                <%= submit_tag "Search",
+                    class: "btn btn-primary flex-fill" %>
+
+                <%= link_to "Clear",
+                    directory_computers_path,
+                    class: "btn btn-outline-secondary" %>
+              </div>
+            </div>
+          </div>
+
+        <% end %>
+      </div>
+    </div>
+
+    <!-- INVENTORY TABLE -->
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white py-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <h5 class="fw-bold mb-0">
+            Domain Computer Directory
+          </h5>
+          <span class="badge bg-primary px-3 py-2">
+            <%= @computer_count %> Computers Returned
+          </span>
+        </div>
+      </div>
+
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Computer Name</th>
+                <th>DNS Hostname</th>
+                <th>Operating System</th>
+                <th>Account Status</th>
+                <th>Last Logon (Approx.)</th>
+                <th class="text-end pe-3">Action</th>
+              </tr>
+            </thead>
+
+            <tbody>
+
+              <% if @computers.any? %>
+
+                <% @computers.each do |computer| %>
+
+                  <tr>
+                    <td class="ps-3">
+                      <span class="fw-semibold">
+                        <%= computer.name %>
+                      </span>
+                    </td>
+
+                    <td class="small">
+                      <%= computer.dns_hostname.presence || "—" %>
+                    </td>
+
+                    <td class="small">
+                      <%= computer.operating_system.presence || "Unknown" %>
+                    </td>
+
+                    <td>
+                      <% if computer.enabled %>
+                        <span class="badge bg-success">Enabled</span>
+                      <% else %>
+                        <span class="badge bg-secondary">Disabled</span>
+                      <% end %>
+                    </td>
+
+                    <td class="small text-muted">
+                      <% if computer.last_logon %>
+                        <%= l(computer.last_logon, format: :long) %>
+                      <% else %>
+                        Never / Not Recorded
+                      <% end %>
+                    </td>
+
+                    <td class="text-end pe-3">
+                      <%= link_to "View Computer",
+                          directory_computer_path(computer.account_name),
+                          class: "btn btn-sm btn-outline-primary" %>
+                    </td>
+                  </tr>
+
+                <% end %>
+
+              <% else %>
+
+                <tr>
+                  <td colspan="6" class="text-center py-5">
+                    <h6 class="fw-bold mb-2">
+                      No Computers Found
+                    </h6>
+                    <p class="text-muted mb-3">
+                      No computer accounts matched your search.
+                    </p>
+                    <%= link_to "Show All Computers",
+                        directory_computers_path,
+                        class: "btn btn-outline-primary" %>
+                  </td>
+                </tr>
+
+              <% end %>
+
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- PAGINATION -->
+
+      <div class="card-footer bg-white py-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <span class="small text-muted">
+            <% if @computer_count > 0 %>
+              Showing
+              <%= ((@current_page - 1) * 25) + 1 %>–<%= [@current_page * 25, @computer_count].min %>
+              of <%= @computer_count %> returned computers
+            <% else %>
+              No computers to display
+            <% end %>
+          </span>
+
+          <span class="small text-muted">
+            Page <%= @current_page %> of <%= @total_pages %>
+          </span>
+        </div>
+
+        <% if @total_pages > 1 %>
+          <nav class="mt-3" aria-label="Computer directory pagination">
+            <ul class="pagination pagination-sm justify-content-center flex-wrap mb-0">
+
+              <li class="page-item <%= 'disabled' if @current_page == 1 %>">
+                <% if @current_page > 1 %>
+                  <%= link_to "Previous",
+                      directory_computers_path(q: @query.presence, page: @current_page - 1),
+                      class: "page-link" %>
+                <% else %>
+                  <span class="page-link">Previous</span>
+                <% end %>
+              </li>
+
+              <% (1..@total_pages).each do |page_number| %>
+                <li class="page-item <%= 'active' if page_number == @current_page %>">
+                  <%= link_to page_number,
+                      directory_computers_path(q: @query.presence, page: page_number),
+                      class: "page-link",
+                      aria: {
+                        current: page_number == @current_page ? "page" : nil
+                      } %>
+                </li>
+              <% end %>
+
+              <li class="page-item <%= 'disabled' if @current_page == @total_pages %>">
+                <% if @current_page < @total_pages %>
+                  <%= link_to "Next",
+                      directory_computers_path(q: @query.presence, page: @current_page + 1),
+                      class: "page-link" %>
+                <% else %>
+                  <span class="page-link">Next</span>
+                <% end %>
+              </li>
+
+            </ul>
+          </nav>
+        <% end %>
+      </div>
+    </div>
+
+    <% if @computer_count >= 500 %>
+      <div class="alert alert-info mt-3 mb-0">
+        <strong>Directory Result Limit:</strong>
+        This directory displays a maximum of 500 computer accounts.
+        Refine your search to locate additional computers.
+      </div>
+    <% end %>
+
+  <% end %>
+
+  <!-- SECURITY NOTICE -->
+
+  <div class="alert alert-secondary mt-4 mb-0">
+    <strong>Security Notice:</strong>
+    This directory is restricted to authorised HERGA Portal administrators.
+    Computer information is retrieved using read-only LDAP operations.
+    Account status does not indicate whether a device is currently online.
+  </div>
+
+  <div class="text-center text-muted small mt-4">
+    HERGA Corporate Portal
+    <span class="mx-2">|</span>
+    Active Directory Computer Inventory
+    <span class="mx-2">|</span>
+    &copy; <%= Date.current.year %> HERGA
+  </div>
+
+</div>

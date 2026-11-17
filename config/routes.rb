@@ -55,6 +55,7 @@ Rails.application.routes.draw do
 
   resources :directory_users, only: [:index, :show]
   resources :directory_groups, only: [:index, :show]
+  resources :directory_computers, only: [:index, :show]
 
   # Administration routes.
   namespace :admin do
