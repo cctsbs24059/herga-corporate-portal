@@ -74,6 +74,21 @@ Rails.application.routes.draw do
   end
 
 
+  # ============================================================
+  # Phase 2D.6.4 - Infrastructure Incident Management
+  # ============================================================
+
+  resources :infrastructure_incidents, only: [:index, :show] do
+    member do
+      patch :acknowledge
+      patch :assign
+      patch :resolve
+    end
+  end
+
+
+
+
   # Administration routes.
   namespace :admin do
     resources :portal_applications,

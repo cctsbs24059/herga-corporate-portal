@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_17_230655) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_18_224121) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -64,6 +64,45 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_17_230655) do
     t.index ["infrastructure_monitoring_run_id"], name: "idx_on_infrastructure_monitoring_run_id_881504039e"
   end
 
+  create_table "infrastructure_incident_events", force: :cascade do |t|
+    t.bigint "infrastructure_incident_id", null: false
+    t.bigint "user_id"
+    t.string "event_type", null: false
+    t.text "details"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["infrastructure_incident_id", "created_at"], name: "index_incident_events_on_incident_and_created"
+    t.index ["infrastructure_incident_id"], name: "idx_on_infrastructure_incident_id_34a5b2e0a0"
+    t.index ["user_id"], name: "index_infrastructure_incident_events_on_user_id"
+  end
+
+  create_table "infrastructure_incidents", force: :cascade do |t|
+    t.bigint "infrastructure_asset_id", null: false
+    t.string "incident_type", default: "ICMP Connectivity", null: false
+    t.string "severity", default: "Critical", null: false
+    t.string "status", default: "Open", null: false
+    t.text "description"
+    t.datetime "first_detected_at", null: false
+    t.datetime "last_observed_at", null: false
+    t.integer "consecutive_failures", default: 3, null: false
+    t.datetime "resolved_at"
+    t.string "resolution_reason"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "assigned_to_id"
+    t.bigint "acknowledged_by_id"
+    t.bigint "resolved_by_id"
+    t.datetime "acknowledged_at"
+    t.text "resolution_note"
+    t.boolean "suppress_until_recovery", default: false, null: false
+    t.index ["acknowledged_by_id"], name: "index_infrastructure_incidents_on_acknowledged_by_id"
+    t.index ["assigned_to_id"], name: "index_infrastructure_incidents_on_assigned_to_id"
+    t.index ["infrastructure_asset_id", "incident_type"], name: "index_incidents_one_unresolved_per_asset_type", unique: true, where: "((status)::text = ANY ((ARRAY['Open'::character varying, 'Acknowledged'::character varying])::text[]))"
+    t.index ["infrastructure_asset_id"], name: "index_infrastructure_incidents_on_infrastructure_asset_id"
+    t.index ["resolved_by_id"], name: "index_infrastructure_incidents_on_resolved_by_id"
+    t.index ["status", "last_observed_at"], name: "index_infrastructure_incidents_on_status_and_observed"
+  end
+
   create_table "infrastructure_monitoring_runs", force: :cascade do |t|
     t.string "status", default: "Queued", null: false
     t.integer "total_assets", default: 0, null: false
@@ -107,4 +146,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_17_230655) do
 
   add_foreign_key "infrastructure_connectivity_results", "infrastructure_assets"
   add_foreign_key "infrastructure_connectivity_results", "infrastructure_monitoring_runs"
+  add_foreign_key "infrastructure_incident_events", "infrastructure_incidents"
+  add_foreign_key "infrastructure_incident_events", "users"
+  add_foreign_key "infrastructure_incidents", "infrastructure_assets"
+  add_foreign_key "infrastructure_incidents", "users", column: "acknowledged_by_id"
+  add_foreign_key "infrastructure_incidents", "users", column: "assigned_to_id"
+  add_foreign_key "infrastructure_incidents", "users", column: "resolved_by_id"
 end

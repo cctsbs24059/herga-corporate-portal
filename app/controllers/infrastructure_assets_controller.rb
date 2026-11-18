@@ -79,6 +79,22 @@ class InfrastructureAssetsController < ApplicationController
 
     @historical_check_count = InfrastructureConnectivityResult.count
 
+    # Persistent incident statistics, including acknowledged incidents.
+    @incident_total = InfrastructureIncident.count
+    @open_incident_count = InfrastructureIncident.open_incidents.count
+    @acknowledged_incident_count = InfrastructureIncident.where(status: "Acknowledged").count
+    @resolved_incident_count = InfrastructureIncident.resolved.count
+    @unresolved_incident_count = InfrastructureIncident.unresolved.count
+    @critical_incident_count = InfrastructureIncident.unresolved.where(severity: "Critical").count
+    @recent_incidents = InfrastructureIncident
+                        .includes(:infrastructure_asset)
+                        .recent.limit(10)
+    @open_incident_asset_ids = InfrastructureIncident.unresolved
+                               .distinct.pluck(:infrastructure_asset_id)
+    @unresolved_incidents_by_asset_id = InfrastructureIncident.unresolved
+      .order(last_observed_at: :desc, id: :desc)
+      .to_a.group_by(&:infrastructure_asset_id)
+
     # Search and filtering
     @query = params[:q].to_s.strip.first(100)
     @asset_type = params[:asset_type].to_s
@@ -157,6 +173,14 @@ class InfrastructureAssetsController < ApplicationController
                                    .where(infrastructure_asset_id: @asset.id)
                                    .recent
                                    .limit(10)
+    @asset_unresolved_incidents = InfrastructureIncident.unresolved
+      .where(infrastructure_asset_id: @asset.id)
+      .recent
+    @asset_recent_incidents = InfrastructureIncident
+      .where(infrastructure_asset_id: @asset.id)
+      .includes(:assigned_to)
+      .recent
+      .limit(10)
   end
 
   def new
@@ -193,7 +217,24 @@ class InfrastructureAssetsController < ApplicationController
   def retire
     return unless manual_asset?
 
-    @asset.update!(status: "Retired")
+    @asset.with_lock do
+      @asset.update!(status: "Retired")
+      InfrastructureIncident.unresolved
+        .where(infrastructure_asset_id: @asset.id)
+        .find_each do |incident|
+          incident.update!(
+            status: "Resolved",
+            resolved_at: Time.current,
+            resolution_reason: "Asset retired",
+            suppress_until_recovery: false
+          )
+          incident.infrastructure_incident_events.create!(
+            event_type: "Retired",
+            user: current_user,
+            details: "Incident resolved because asset was retired by #{current_user.username}"
+          )
+        end
+    end
 
     redirect_to infrastructure_assets_path,
                 notice: "Infrastructure asset retired successfully."

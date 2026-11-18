@@ -98,6 +98,42 @@
     </div>
   </div>
 
+  <!-- Persistent Infrastructure Incidents -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+      <h5 class="fw-bold mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Infrastructure Incidents</h5>
+      <span class="badge bg-danger"><%= @open_incident_count %> Open</span>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light"><tr>
+            <th>Server</th><th>Type</th><th>Severity</th><th>Status</th>
+            <th>Failures</th><th>First Detected</th><th>Last Observed</th><th>Resolution</th>
+          </tr></thead>
+          <tbody>
+            <% @recent_incidents.each do |incident| %>
+              <tr>
+                <td><%= link_to incident.infrastructure_asset.hostname, infrastructure_asset_path(incident.infrastructure_asset) %></td>
+                <td><%= incident.incident_type %></td>
+                <td><span class="badge bg-danger"><%= incident.severity %></span></td>
+                <td><span class="badge <%= incident.status == 'Open' ? 'bg-danger' : 'bg-success' %>"><%= incident.status %></span></td>
+                <td><%= incident.consecutive_failures %></td>
+                <td class="small"><%= l(incident.first_detected_at, format: :short) %></td>
+                <td class="small"><%= l(incident.last_observed_at, format: :short) %></td>
+                <td class="small"><%= incident.resolution_reason.presence || '—' %></td>
+              </tr>
+            <% end %>
+            <% if @recent_incidents.empty? %>
+              <tr><td colspan="8" class="text-center text-muted py-4">No incidents recorded yet. New incidents are created after three consecutive unsuccessful ICMP checks.</td></tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer bg-white small text-muted">Connectivity incidents indicate repeated failed ICMP checks, not confirmed server outages.</div>
+  </div>
+
   <!-- Enterprise Connectivity Overview -->
   <div class="card border-0 shadow-sm mb-4">
     <div class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
@@ -348,7 +384,7 @@
   </div>
 
   <!-- Synchronization Information -->
-  <div class="alert alert-light border d-flex flex-wrap justify-content-between align-items-centergap-2 mb-4">
+  <div class="alert alert-light border d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
     <div>
       <i class="bi bi-clock-history me-2"></i>
       <strong>Latest AD Asset Synchronization:</strong>

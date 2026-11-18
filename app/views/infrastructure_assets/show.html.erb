@@ -1,4 +1,3 @@
-
 <% content_for :title, @asset.hostname %>
 
 <%
@@ -164,7 +163,126 @@
 
   </div>
 
-  <!-- CURRENT CONNECTIVITY -->
+
+  <!-- INCIDENT MANAGEMENT: Phase 2D.6.6 -->
+  <% active_incidents = Array(@asset_unresolved_incidents) %>
+  <% recent_incidents = Array(@asset_recent_incidents) %>
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <h5 class="fw-bold mb-0">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        Infrastructure Incidents
+      </h5>
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge <%= active_incidents.any? ? 'bg-danger' : 'bg-success' %>">
+          <%= active_incidents.size %> Unresolved
+        </span>
+        <%= link_to "Incident Register", infrastructure_incidents_path,
+                    class: "btn btn-outline-primary btn-sm" %>
+      </div>
+    </div>
+
+    <div class="card-body p-4">
+      <h6 class="fw-bold mb-3">Active and Acknowledged Incidents</h6>
+      <% if active_incidents.any? %>
+        <div class="table-responsive mb-4">
+          <table class="table table-hover align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Incident</th>
+                <th>Severity</th>
+                <th>Status</th>
+                <th>Failures</th>
+                <th>Assigned To</th>
+                <th>First Detected</th>
+                <th class="text-end">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% active_incidents.each do |incident| %>
+                <tr>
+                  <td>
+                    <strong>#<%= incident.id %></strong>
+                    <div class="small text-muted"><%= incident.incident_type %></div>
+                  </td>
+                  <td>
+                    <span class="badge <%= incident.severity == 'Critical' ? 'bg-danger' : 'bg-warning text-dark' %>">
+                      <%= incident.severity %>
+                    </span>
+                  </td>
+                  <td>
+                    <span class="badge <%= incident.status == 'Open' ? 'bg-danger' : 'bg-warning text-dark' %>">
+                      <%= incident.status %>
+                    </span>
+                  </td>
+                  <td><%= incident.consecutive_failures %></td>
+                  <td><%= incident.assigned_to&.display_name.presence || incident.assigned_to&.username || 'Unassigned' %></td>
+                  <td class="small"><%= l(incident.first_detected_at, format: :short) %></td>
+                  <td class="text-end">
+                    <%= link_to "Manage", infrastructure_incident_path(incident),
+                                class: "btn btn-outline-primary btn-sm" %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% else %>
+        <div class="alert alert-light border mb-4">
+          <i class="bi bi-check-circle text-success me-2"></i>
+          No unresolved incidents are currently recorded for this asset.
+        </div>
+      <% end %>
+
+      <h6 class="fw-bold mb-3">Recent Incident History</h6>
+      <% if recent_incidents.any? %>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Incident</th>
+                <th>Status</th>
+                <th>Last Observed</th>
+                <th>Resolution</th>
+                <th class="text-end">Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% recent_incidents.each do |incident| %>
+                <% badge_class = case incident.status
+                   when 'Open' then 'bg-danger'
+                   when 'Acknowledged' then 'bg-warning text-dark'
+                   when 'Resolved' then 'bg-success'
+                   else 'bg-secondary'
+                   end %>
+                <tr>
+                  <td>
+                    <strong>#<%= incident.id %></strong>
+                    <div class="small text-muted"><%= incident.incident_type %></div>
+                  </td>
+                  <td><span class="badge <%= badge_class %>"><%= incident.status %></span></td>
+                  <td class="small"><%= l(incident.last_observed_at, format: :short) %></td>
+                  <td class="small"><%= incident.resolution_reason.presence || '—' %></td>
+                  <td class="text-end">
+                    <%= link_to "View History", infrastructure_incident_path(incident),
+                                class: "btn btn-outline-secondary btn-sm" %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% else %>
+        <p class="text-muted mb-0">No incidents have been recorded for this asset.</p>
+      <% end %>
+      <p class="small text-muted mt-3 mb-0">
+        Incidents reflect repeated unsuccessful ICMP checks, not confirmed server outages.
+        Incident audit events and management actions are available from each incident's details page.
+      </p>
+    </div>
+  </div>
+
+    <!-- CURRENT CONNECTIVITY -->
 
   <div class="card border-0 shadow-sm mb-4">
 

@@ -1,4 +1,3 @@
-
 # frozen_string_literal: true
 
 require "resolv"
@@ -109,7 +108,7 @@ module Infrastructure
           connectivity_error: diagnostic
         )
 
-        InfrastructureConnectivityResult.create!(
+        connectivity_result = InfrastructureConnectivityResult.create!(
           infrastructure_asset: @asset,
           infrastructure_monitoring_run: @monitoring_run,
           dns_status: dns_status,
@@ -119,6 +118,10 @@ module Infrastructure
           connectivity_error: diagnostic,
           checked_at: checked_at
         )
+
+        Infrastructure::IncidentDetector.new(
+          @asset, connectivity_result: connectivity_result
+        ).call
       end
 
       Rails.logger.info(

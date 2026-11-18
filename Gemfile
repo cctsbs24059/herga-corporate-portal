@@ -80,3 +80,5 @@ gem "dotenv-rails", "~> 3.2", groups: [:development, :test]
 
 # Net::LDAP provides encrypted Active Directory connectivity.
 gem "net-ldap"
+
+gem "will_paginate", "~> 4.0"
