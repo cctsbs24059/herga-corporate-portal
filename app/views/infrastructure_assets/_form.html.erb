@@ -1,0 +1,78 @@
+
+<%= form_with model: @asset, local: true do |f| %>
+
+  <% if @asset.errors.any? %>
+    <div class="alert alert-danger">
+      <strong>Please correct the following errors:</strong>
+      <ul class="mb-0">
+        <% @asset.errors.full_messages.each do |message| %>
+          <li><%= message %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div class="row g-3">
+
+    <% [
+      [:hostname, "Hostname"],
+      [:fqdn, "Fully Qualified Domain Name"],
+      [:ip_address, "IP Address"],
+      [:operating_system, "Operating System"],
+      [:operating_system_version, "OS Version"],
+      [:location, "Location"],
+      [:business_function, "Business Function"]
+    ].each do |field, label| %>
+
+      <div class="col-md-6">
+        <%= f.label field, label, class: "form-label" %>
+        <%= f.text_field field, class: "form-control" %>
+      </div>
+
+    <% end %>
+
+    <div class="col-md-6">
+      <%= f.label :asset_type, class: "form-label" %>
+      <%= f.select :asset_type,
+          InfrastructureAsset::ASSET_TYPES,
+          { prompt: "Select Asset Type" },
+          class: "form-select" %>
+    </div>
+
+    <div class="col-md-6">
+      <%= f.label :environment, class: "form-label" %>
+      <%= f.select :environment,
+          InfrastructureAsset::ENVIRONMENTS,
+          {},
+          class: "form-select" %>
+    </div>
+
+    <div class="col-md-6">
+      <%= f.label :status, class: "form-label" %>
+      <%= f.select :status,
+          InfrastructureAsset::STATUSES,
+          {},
+          class: "form-select" %>
+    </div>
+
+    <div class="col-12">
+      <%= f.label :description, class: "form-label" %>
+      <%= f.text_area :description, rows: 3, class: "form-control" %>
+    </div>
+
+    <div class="col-12">
+      <%= f.label :notes, class: "form-label" %>
+      <%= f.text_area :notes, rows: 3, class: "form-control" %>
+    </div>
+
+  </div>
+
+  <div class="d-flex gap-2 mt-4">
+    <%= f.submit class: "btn btn-primary" %>
+
+    <%= link_to "Cancel",
+        infrastructure_assets_path,
+        class: "btn btn-outline-secondary" %>
+  </div>
+
+<% end %>

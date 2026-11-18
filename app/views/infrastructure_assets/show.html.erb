@@ -1,0 +1,690 @@
+
+<% content_for :title, @asset.hostname %>
+
+<%
+  history = Array(@recent_connectivity_results)
+  history_count = history.size
+
+  reachable_count = history.count { |result| result.icmp_status == "Reachable" }
+  unreachable_count = history.count { |result| result.icmp_status == "Unreachable" }
+  unknown_count = history.count { |result| result.icmp_status == "Unknown" }
+
+  reachability_percentage =
+    if history_count.positive?
+      (reachable_count.to_f / history_count * 100).round(1)
+    else
+      0
+    end
+
+  latencies = history.filter_map do |result|
+    result.icmp_response_ms if result.icmp_status == "Reachable"
+  end
+
+  average_latency =
+    latencies.any? ? latencies.sum / latencies.size : nil
+
+  minimum_latency = latencies.min
+  maximum_latency = latencies.max
+
+  latency_scale = [maximum_latency.to_f, 1.0].max
+%>
+
+<div class="container py-4">
+
+  <!-- PAGE HEADER -->
+
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+
+    <div>
+      <h2 class="fw-bold mb-1">
+        <%= @asset.hostname %>
+      </h2>
+
+      <p class="text-muted mb-0">
+        HERGA.NET Infrastructure Asset Details
+      </p>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2">
+
+      <%= button_to check_connectivity_infrastructure_asset_path(@asset),
+          method: :post,
+          class: "btn btn-outline-primary",
+          form: {
+            data: {
+              turbo_confirm: "Run DNS and ICMP checks for #{@asset.hostname}?"
+            }
+          } do %>
+        <i class="bi bi-activity me-1"></i>
+        Check Connectivity
+      <% end %>
+
+      <% if @asset.manually_registered? %>
+
+        <%= link_to edit_infrastructure_asset_path(@asset),
+            class: "btn btn-primary" do %>
+          <i class="bi bi-pencil-square me-1"></i>
+          Edit Asset
+        <% end %>
+
+        <% unless @asset.status == "Retired" %>
+          <%= button_to retire_infrastructure_asset_path(@asset),
+              method: :patch,
+              class: "btn btn-outline-danger",
+              form: {
+                data: {
+                  turbo_confirm: "Retire this infrastructure asset?"
+                }
+              } do %>
+            <i class="bi bi-archive me-1"></i>
+            Retire Asset
+          <% end %>
+        <% end %>
+
+      <% end %>
+
+      <%= link_to infrastructure_assets_path,
+          class: "btn btn-outline-secondary" do %>
+        <i class="bi bi-arrow-left me-1"></i>
+        Back to Inventory
+      <% end %>
+
+    </div>
+  </div>
+
+  <!-- ASSET OVERVIEW -->
+
+  <div class="row g-3 mb-4">
+
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body p-4">
+          <div class="text-muted small mb-2">
+            <i class="bi bi-hdd-network me-1"></i>
+            Asset Classification
+          </div>
+
+          <h5 class="fw-bold mb-2">
+            <%= @asset.asset_type %>
+          </h5>
+
+          <span class="badge bg-secondary">
+            <%= @asset.environment %>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body p-4">
+          <div class="text-muted small mb-2">
+            <i class="bi bi-diagram-3 me-1"></i>
+            Registration Source
+          </div>
+
+          <h5 class="fw-bold mb-2">
+            <%= @asset.source %>
+          </h5>
+
+          <% if @asset.directory_managed? %>
+            <span class="badge bg-primary">AD Managed</span>
+          <% else %>
+            <span class="badge bg-secondary">Manually Registered</span>
+          <% end %>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body p-4">
+          <div class="text-muted small mb-2">
+            <i class="bi bi-info-circle me-1"></i>
+            Asset Lifecycle Status
+          </div>
+
+          <h5 class="fw-bold mb-2">
+            <%= @asset.status %>
+          </h5>
+
+          <% lifecycle_class =
+              case @asset.status
+              when "Active" then "bg-success"
+              when "Maintenance" then "bg-warning text-dark"
+              else "bg-secondary"
+              end %>
+
+          <span class="badge <%= lifecycle_class %>">
+            <%= @asset.status %>
+          </span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CURRENT CONNECTIVITY -->
+
+  <div class="card border-0 shadow-sm mb-4">
+
+    <div class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+
+      <h5 class="fw-bold mb-0">
+        <i class="bi bi-activity me-2"></i>
+        Server Connectivity Monitoring
+      </h5>
+
+      <% if @asset.last_connectivity_check_at.present? %>
+        <span class="small text-muted">
+          Last checked:
+          <%= l(@asset.last_connectivity_check_at, format: :long) %>
+        </span>
+      <% else %>
+        <span class="badge bg-secondary">Not Yet Checked</span>
+      <% end %>
+
+    </div>
+
+    <div class="card-body p-4">
+
+      <% if @asset.last_connectivity_check_at.present? %>
+
+        <div class="row g-4">
+
+          <div class="col-md-6 col-xl-3">
+            <div class="small text-muted mb-2">DNS Resolution</div>
+
+            <% dns_class =
+                case @asset.dns_status
+                when "Resolved" then "bg-success"
+                when "Failed" then "bg-danger"
+                else "bg-secondary"
+                end %>
+
+            <span class="badge <%= dns_class %> fs-6">
+              <%= @asset.dns_status.presence || "Unknown" %>
+            </span>
+          </div>
+
+          <div class="col-md-6 col-xl-3">
+            <div class="small text-muted mb-2">ICMP Reachability</div>
+
+            <% icmp_class =
+                case @asset.icmp_status
+                when "Reachable" then "bg-success"
+                when "Unreachable" then "bg-danger"
+                else "bg-secondary"
+                end %>
+
+            <span class="badge <%= icmp_class %> fs-6">
+              <%= @asset.icmp_status.presence || "Unknown" %>
+            </span>
+          </div>
+
+          <div class="col-md-6 col-xl-3">
+            <div class="small text-muted mb-2">
+              Resolved IPv4 Address
+            </div>
+
+            <div class="fw-semibold text-break">
+              <%= @asset.resolved_ip_address.presence || "Not resolved" %>
+            </div>
+          </div>
+
+          <div class="col-md-6 col-xl-3">
+            <div class="small text-muted mb-2">
+              ICMP Response Time
+            </div>
+
+            <div class="fw-semibold">
+              <% if @asset.icmp_response_ms.present? %>
+                <%= number_with_precision(
+                      @asset.icmp_response_ms,
+                      precision: 2
+                    ) %> ms
+              <% else %>
+                Not available
+              <% end %>
+            </div>
+          </div>
+
+        </div>
+
+        <% if @asset.connectivity_error.present? %>
+          <div class="alert alert-warning mt-4 mb-0">
+            <div class="fw-semibold mb-1">
+              <i class="bi bi-exclamation-triangle me-1"></i>
+              Connectivity Diagnostic Information
+            </div>
+
+            <div class="small text-break">
+              <%= @asset.connectivity_error %>
+            </div>
+          </div>
+        <% end %>
+
+      <% else %>
+
+        <div class="text-center py-4">
+          <i class="bi bi-wifi fs-1 text-muted"></i>
+
+          <h5 class="fw-semibold mt-3">
+            No Connectivity Results Available
+          </h5>
+
+          <p class="text-muted">
+            Run a connectivity check to test DNS resolution
+            and ICMP reachability.
+          </p>
+
+          <%= button_to check_connectivity_infrastructure_asset_path(@asset),
+              method: :post,
+              class: "btn btn-primary" do %>
+            <i class="bi bi-activity me-1"></i>
+            Run Connectivity Check
+          <% end %>
+        </div>
+
+      <% end %>
+
+      <div class="alert alert-light border mt-4 mb-0 small text-muted">
+        <i class="bi bi-info-circle me-1"></i>
+        DNS and ICMP checks originate from the HERGA Portal application
+        server. An unsuccessful ICMP check does not necessarily indicate
+        that the target server is offline.
+      </div>
+
+    </div>
+  </div>
+
+  <!-- HISTORICAL CONNECTIVITY SUMMARY -->
+
+  <div class="card border-0 shadow-sm mb-4">
+
+    <div class="card-header bg-white py-3">
+      <h5 class="fw-bold mb-0">
+        <i class="bi bi-graph-up me-2"></i>
+        Connectivity Performance History
+      </h5>
+    </div>
+
+    <div class="card-body p-4">
+
+      <p class="small text-muted mb-4">
+        Statistics are calculated from the most recent
+        <%= history_count %> recorded connectivity checks,
+        with a maximum sample of 10.
+      </p>
+
+      <div class="row g-3 mb-4">
+
+        <div class="col-md-6 col-xl-3">
+          <div class="border rounded p-3 h-100">
+            <div class="small text-muted mb-2">
+              Recorded Reachability
+            </div>
+
+            <h3 class="fw-bold text-success mb-1">
+              <% if history_count.positive? %>
+                <%= reachability_percentage %>%
+              <% else %>
+                —
+              <% end %>
+            </h3>
+
+            <div class="small text-muted">
+              <%= reachable_count %> of <%= history_count %> checks
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-xl-3">
+          <div class="border rounded p-3 h-100">
+            <div class="small text-muted mb-2">
+              Average Response Time
+            </div>
+
+            <h3 class="fw-bold mb-1">
+              <% if average_latency %>
+                <%= number_with_precision(average_latency, precision: 2) %>
+                <span class="fs-6">ms</span>
+              <% else %>
+                —
+              <% end %>
+            </h3>
+
+            <div class="small text-muted">
+              Successful ICMP checks
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-xl-3">
+          <div class="border rounded p-3 h-100">
+            <div class="small text-muted mb-2">
+              Minimum Response Time
+            </div>
+
+            <h3 class="fw-bold mb-1">
+              <% if minimum_latency %>
+                <%= number_with_precision(minimum_latency, precision: 2) %>
+                <span class="fs-6">ms</span>
+              <% else %>
+                —
+              <% end %>
+            </h3>
+          </div>
+        </div>
+
+        <div class="col-md-6 col-xl-3">
+          <div class="border rounded p-3 h-100">
+            <div class="small text-muted mb-2">
+              Maximum Response Time
+            </div>
+
+            <h3 class="fw-bold mb-1">
+              <% if maximum_latency %>
+                <%= number_with_precision(maximum_latency, precision: 2) %>
+                <span class="fs-6">ms</span>
+              <% else %>
+                —
+              <% end %>
+            </h3>
+          </div>
+        </div>
+
+      </div>
+
+      <% if history_count.positive? %>
+
+        <div class="mb-4">
+          <div class="d-flex justify-content-between small mb-2">
+            <strong>Recorded Reachability</strong>
+            <span><%= reachability_percentage %>%</span>
+          </div>
+
+          <div class="progress"
+               role="progressbar"
+               aria-label="Recorded reachability"
+               aria-valuenow="<%= reachability_percentage %>"
+               aria-valuemin="0"
+               aria-valuemax="100">
+
+            <div class="progress-bar bg-success"
+                 style="width: <%= reachability_percentage %>%">
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+          <div class="col-md-4">
+            <div class="small text-muted">Reachable</div>
+            <strong class="text-success"><%= reachable_count %></strong>
+          </div>
+
+          <div class="col-md-4">
+            <div class="small text-muted">Unreachable</div>
+            <strong class="text-danger"><%= unreachable_count %></strong>
+          </div>
+
+          <div class="col-md-4">
+            <div class="small text-muted">Unknown</div>
+            <strong class="text-secondary"><%= unknown_count %></strong>
+          </div>
+        </div>
+
+        <!-- LATENCY TREND -->
+
+        <h6 class="fw-bold mb-3">
+          <i class="bi bi-bar-chart me-2"></i>
+          ICMP Response Time Trend
+        </h6>
+
+        <p class="small text-muted">
+          Most recent check first. Bars are scaled relative to the
+          highest recorded response time in this sample.
+        </p>
+
+        <% history.each do |result| %>
+
+          <div class="row align-items-center g-2 mb-3">
+
+            <div class="col-md-3">
+              <span class="small text-muted">
+                <%= l(result.checked_at, format: :short) %>
+              </span>
+            </div>
+
+            <div class="col-md-7">
+
+              <% if result.icmp_status == "Reachable" &&
+                    result.icmp_response_ms.present? %>
+
+                <% bar_width =
+                    (result.icmp_response_ms.to_f / latency_scale * 100).round(1) %>
+
+                <div class="progress"
+                     role="progressbar"
+                     aria-label="Response time"
+                     aria-valuenow="<%= bar_width %>"
+                     aria-valuemin="0"
+                     aria-valuemax="100">
+
+                  <div class="progress-bar bg-primary"
+                       style="width: <%= bar_width %>%">
+                  </div>
+                </div>
+
+              <% else %>
+
+                <span class="small text-muted">
+                  <%= result.icmp_status.presence || "Unknown" %>
+                  — No latency measurement
+                </span>
+
+              <% end %>
+
+            </div>
+
+            <div class="col-md-2 text-md-end">
+              <span class="small fw-semibold">
+                <% if result.icmp_response_ms.present? &&
+                      result.icmp_status == "Reachable" %>
+                  <%= number_with_precision(
+                        result.icmp_response_ms,
+                        precision: 2
+                      ) %> ms
+                <% else %>
+                  —
+                <% end %>
+              </span>
+            </div>
+
+          </div>
+
+        <% end %>
+
+      <% else %>
+
+        <div class="text-center text-muted py-4">
+          <i class="bi bi-clock-history fs-1"></i>
+
+          <p class="mt-3 mb-0">
+            No historical connectivity results recorded yet.
+          </p>
+        </div>
+
+      <% end %>
+
+    </div>
+  </div>
+
+  <!-- CONNECTIVITY CHECK HISTORY -->
+
+  <div class="card border-0 shadow-sm mb-4">
+
+    <div class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center">
+      <h5 class="fw-bold mb-0">
+        <i class="bi bi-clock-history me-2"></i>
+        Recent Connectivity Checks
+      </h5>
+
+      <span class="badge bg-secondary">
+        Last <%= history_count %> Checks
+      </span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+
+        <thead class="table-light">
+          <tr>
+            <th>Checked At</th>
+            <th>DNS</th>
+            <th>Resolved IP</th>
+            <th>ICMP</th>
+            <th>Latency</th>
+            <th>Monitoring Run</th>
+            <th>Diagnostic</th>
+          </tr>
+        </thead>
+
+        <tbody>
+
+          <% history.each do |result| %>
+
+            <tr>
+              <td class="small">
+                <%= l(result.checked_at, format: :long) %>
+              </td>
+
+              <td>
+                <% dns_badge =
+                    case result.dns_status
+                    when "Resolved" then "bg-success"
+                    when "Failed" then "bg-danger"
+                    else "bg-secondary"
+                    end %>
+
+                <span class="badge <%= dns_badge %>">
+                  <%= result.dns_status.presence || "Unknown" %>
+                </span>
+              </td>
+
+              <td>
+                <%= result.resolved_ip_address.presence || "—" %>
+              </td>
+
+              <td>
+                <% icmp_badge =
+                    case result.icmp_status
+                    when "Reachable" then "bg-success"
+                    when "Unreachable" then "bg-danger"
+                    else "bg-secondary"
+                    end %>
+
+                <span class="badge <%= icmp_badge %>">
+                  <%= result.icmp_status.presence || "Unknown" %>
+                </span>
+              </td>
+
+              <td>
+                <% if result.icmp_response_ms.present? %>
+                  <%= number_with_precision(
+                        result.icmp_response_ms,
+                        precision: 2
+                      ) %> ms
+                <% else %>
+                  —
+                <% end %>
+              </td>
+
+              <td>
+                <% if result.infrastructure_monitoring_run_id.present? %>
+                  <span class="badge bg-primary">
+                    Run #<%= result.infrastructure_monitoring_run_id %>
+                  </span>
+                <% else %>
+                  <span class="badge bg-secondary">
+                    Manual Check
+                  </span>
+                <% end %>
+              </td>
+
+              <td class="small text-break">
+                <% if result.connectivity_error.present? %>
+                  <span class="text-warning-emphasis"
+                        title="<%= result.connectivity_error %>">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    <%= truncate(result.connectivity_error, length: 90) %>
+                  </span>
+                <% else %>
+                  —
+                <% end %>
+              </td>
+            </tr>
+
+          <% end %>
+
+          <% if history.empty? %>
+            <tr>
+              <td colspan="7" class="text-center text-muted py-5">
+                No historical connectivity checks available.
+              </td>
+            </tr>
+          <% end %>
+
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ASSET INFORMATION -->
+
+  <div class="card border-0 shadow-sm">
+
+    <div class="card-header bg-white py-3">
+      <h5 class="fw-bold mb-0">
+        <i class="bi bi-list-ul me-2"></i>
+        Asset Information
+      </h5>
+    </div>
+
+    <div class="card-body p-4">
+      <div class="row g-4">
+
+        <% [
+          ["Hostname", @asset.hostname],
+          ["FQDN", @asset.fqdn],
+          ["IP Address", @asset.ip_address],
+          ["Asset Type", @asset.asset_type],
+          ["Operating System", @asset.operating_system],
+          ["OS Version", @asset.operating_system_version],
+          ["Environment", @asset.environment],
+          ["Location", @asset.location],
+          ["Business Function", @asset.business_function],
+          ["Status", @asset.status],
+          ["Source", @asset.source],
+          ["Last AD Sync", @asset.last_ad_sync_at],
+          ["Description", @asset.description],
+          ["Notes", @asset.notes]
+        ].each do |label, value| %>
+
+          <div class="col-md-6">
+            <div class="small text-muted mb-1">
+              <%= label %>
+            </div>
+
+            <div class="fw-semibold text-break">
+              <%= value.presence || "Not recorded" %>
+            </div>
+          </div>
+
+        <% end %>
+
+      </div>
+    </div>
+  </div>
+
+</div>

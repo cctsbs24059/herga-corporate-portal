@@ -72,7 +72,7 @@ class DashboardController < ApplicationController
         title: "Infrastructure Servers",
         description: "View corporate servers and infrastructure information.",
         icon: "bi-hdd-network",
-        status: "Planned"
+        status: "Available"
       },
       {
         title: "Security & Audit",

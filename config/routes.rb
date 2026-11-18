@@ -57,6 +57,23 @@ Rails.application.routes.draw do
   resources :directory_groups, only: [:index, :show]
   resources :directory_computers, only: [:index, :show]
 
+  # Phase 2D - Infrastructure Asset Inventory
+
+  # Phase 2D - Infrastructure Asset Inventory
+  
+  resources :infrastructure_assets do
+    collection do
+      post :sync_active_directory
+      post :check_all_connectivity
+    end
+
+    member do
+      patch :retire
+      post :check_connectivity
+    end
+  end
+
+
   # Administration routes.
   namespace :admin do
     resources :portal_applications,
