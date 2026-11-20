@@ -6,8 +6,13 @@ module Infrastructure
     class AlreadyRunning < StandardError; end
     class NoAssets < StandardError; end
     class EnqueueFailed < StandardError; end
+    class JobIdentityPersistenceFailed < StandardError; end
 
     def call
+      # --------------------------------------------------------
+      # 1. Identify eligible infrastructure assets
+      # --------------------------------------------------------
+
       asset_ids = InfrastructureAsset
                   .where.not(status: "Retired")
                   .order(:id)
@@ -15,7 +20,18 @@ module Infrastructure
 
       raise NoAssets, "No eligible assets to monitor" if asset_ids.empty?
 
+      # --------------------------------------------------------
+      # 2. Create the monitoring run
+      # --------------------------------------------------------
+
       run = create_monitoring_run!(asset_ids.size)
+
+      # --------------------------------------------------------
+      # 3. Enqueue the connectivity batch job
+      #
+      # Only errors from perform_later are classified as
+      # enqueue failures.
+      # --------------------------------------------------------
 
       begin
         job = Infrastructure::ConnectivityBatchJob.perform_later(
@@ -28,23 +44,52 @@ module Infrastructure
       rescue StandardError => e
         Rails.logger.error(
           "[Infrastructure] Monitoring enqueue failed: " \
-          "#{e.class}: #{e.message}"
+          "run=#{run.id}, error=#{e.class}: #{e.message}"
         )
 
-        if run.reload.status == "Queued"
-          run.update!(
-            status: "Failed",
-            completed_at: Time.current,
-            error_message: "Job enqueue failed: #{e.class}".truncate(2000)
-          )
-        end
+        fail_queued_run(
+          run,
+          "Job enqueue failed: #{e.class}"
+        )
 
         raise EnqueueFailed, "Unable to enqueue monitoring job"
       end
 
+      # --------------------------------------------------------
+      # 4. Persist the Active Job UUID
+      #
+      # The job has already been accepted by Solid Queue.
+      #
+      # Do not mark the run Failed if this update fails.
+      # The background worker may already be processing it.
+      # --------------------------------------------------------
+
+      begin
+        run.update!(
+          active_job_id: job.job_id
+        )
+
+      rescue StandardError => e
+        Rails.logger.error(
+          "[Infrastructure] Job identity persistence failed: " \
+          "run=#{run.id}, " \
+          "active_job_id=#{job.job_id}, " \
+          "error=#{e.class}: #{e.message}"
+        )
+
+        raise JobIdentityPersistenceFailed,
+              "Monitoring job was enqueued, but its identity " \
+              "could not be persisted for run #{run.id}"
+      end
+
+      # --------------------------------------------------------
+      # 5. Log successful scheduling
+      # --------------------------------------------------------
+
       Rails.logger.info(
         "[Infrastructure] Monitoring run #{run.id} queued " \
-        "for #{asset_ids.size} assets"
+        "for #{asset_ids.size} assets, " \
+        "active_job_id=#{job.job_id}"
       )
 
       run
@@ -52,15 +97,40 @@ module Infrastructure
 
     private
 
+    # ----------------------------------------------------------
+    # Create a monitoring run with database-level protection
+    # against overlapping Queued or Running runs.
+    # ----------------------------------------------------------
+
     def create_monitoring_run!(total_assets)
       InfrastructureMonitoringRun.create!(
         status: "Queued",
         total_assets: total_assets
       )
 
-    rescue ActiveRecord::RecordNotUnique => e
+    rescue ActiveRecord::RecordNotUnique
       raise AlreadyRunning,
             "An infrastructure monitoring run is already active"
+    end
+
+    # ----------------------------------------------------------
+    # Mark a run Failed only if it remains Queued.
+    #
+    # The conditional update avoids overwriting a run whose
+    # state has already changed.
+    # ----------------------------------------------------------
+
+    def fail_queued_run(run, reason)
+      now = Time.current
+
+      InfrastructureMonitoringRun
+        .where(id: run.id, status: "Queued")
+        .update_all(
+          status: "Failed",
+          completed_at: now,
+          error_message: reason.truncate(2000),
+          updated_at: now
+        )
     end
   end
 end
