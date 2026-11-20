@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_18_224121) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_19_221831) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -116,7 +116,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_18_224121) do
     t.text "error_message"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.datetime "heartbeat_at"
+    t.string "active_job_id"
     t.index "(\nCASE\n    WHEN ((status)::text = ANY ((ARRAY['Queued'::character varying, 'Running'::character varying])::text[])) THEN 1\n    ELSE NULL::integer\nEND)", name: "index_infrastructure_monitoring_runs_one_active", unique: true
+    t.index ["active_job_id"], name: "index_infrastructure_monitoring_runs_on_active_job_id", unique: true
     t.index ["created_at"], name: "index_infrastructure_monitoring_runs_on_created_at"
     t.index ["status"], name: "index_infrastructure_monitoring_runs_on_status"
   end

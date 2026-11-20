@@ -65,6 +65,7 @@ group :test do
   # Use system testing [https://guides.rubyonrails.org/testing.html#system-testing]
   gem "capybara"
   gem "selenium-webdriver"
+  gem "minitest-mock"
 end
 
 # Devise manages user sessions, sign-in and sign-out.
@@ -82,3 +83,4 @@ gem "dotenv-rails", "~> 3.2", groups: [:development, :test]
 gem "net-ldap"
 
 gem "will_paginate", "~> 4.0"
+

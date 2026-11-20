@@ -1,8 +1,11 @@
+# frozen_string_literal: true
+
 require "test_helper"
 
 class PortalApplicationsControllerTest < ActionDispatch::IntegrationTest
-  test "should get index" do
-    get portal_applications_index_url
-    assert_response :success
+  test "redirects unauthenticated users to login" do
+    get portal_applications_url
+
+    assert_redirected_to new_user_session_path
   end
 end
