@@ -16,6 +16,32 @@ module Infrastructure
     def inspect_run(run)
       return unless stale?(run)
 
+      # Serialize recovery with connectivity-result persistence.
+      # ConnectivityCheck must acquire the run lock first.
+      InfrastructureMonitoringRun.transaction do
+        locked_run = InfrastructureMonitoringRun
+                     .lock
+                     .find_by(id: run.id)
+
+        next unless locked_run
+        next unless locked_run.queued? || locked_run.running?
+
+        # The worker may have refreshed its heartbeat while
+        # recovery was waiting for the database lock.
+        next unless stale?(locked_run)
+
+        inspect_locked_run(locked_run)
+      end
+    rescue StandardError => e
+      Rails.logger.error(
+        "[Infrastructure] Recovery inspection failed: " \
+        "run=#{run.id}, error=#{e.class}: #{e.message}"
+      )
+
+      raise
+    end
+
+    def inspect_locked_run(run)
       if run.active_job_id.blank?
         warn_unverified(run, "Active Job ID is missing")
         return
@@ -55,13 +81,6 @@ module Infrastructure
         run,
         "No conclusive evidence that the worker has stopped"
       )
-    rescue StandardError => e
-      Rails.logger.error(
-        "[Infrastructure] Recovery inspection failed: " \
-        "run=#{run.id}, error=#{e.class}: #{e.message}"
-      )
-
-      raise
     end
 
     def stale?(run)
@@ -84,24 +103,18 @@ module Infrastructure
     end
 
     def mark_failed(run, reason)
+      # Called only while holding the monitoring-run row lock.
+      # Retaining the execution token provides an audit trail.
+      # The Failed status revokes permission to persist results.
+      return unless run.queued? || run.running?
+
       now = Time.current
 
-      # Conditional update prevents repeated recovery of a
-      # monitoring run that has already changed state.
-      updated = InfrastructureMonitoringRun
-                .where(
-                  id: run.id,
-                  status: run.status
-                )
-                .where("updated_at = ?", run.updated_at)
-                .update_all(
-                  status: "Failed",
-                  completed_at: now,
-                  error_message: reason,
-                  updated_at: now
-                )
-
-      return unless updated == 1
+      run.update!(
+        status: "Failed",
+        completed_at: now,
+        error_message: reason.truncate(2000)
+      )
 
       Rails.logger.error(
         "[Infrastructure] Monitoring run #{run.id} " \

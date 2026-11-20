@@ -24,8 +24,14 @@ development:
     migrations_paths: db/queue_migrate
 
 test:
-  <<: *default
-  database: herga_portal_test
+  primary:
+    <<: *default
+    database: herga_portal_test
+
+  queue:
+    <<: *default
+    database: herga_portal_test_queue
+    migrations_paths: db/queue_migrate
 
 production:
   primary: &primary_production

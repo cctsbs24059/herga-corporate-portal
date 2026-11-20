@@ -1,3 +1,4 @@
+
 # frozen_string_literal: true
 
 require "resolv"
@@ -10,9 +11,10 @@ module Infrastructure
     DNS_TIMEOUT = 3
     PING_TIMEOUT = 5
 
-    def initialize(asset, monitoring_run: nil)
+    def initialize(asset, monitoring_run: nil, execution_token: nil)
       @asset = asset
       @monitoring_run = monitoring_run
+      @execution_token = execution_token
     end
 
     def call
@@ -25,7 +27,7 @@ module Infrastructure
       errors = []
 
       # --------------------------------------------------------
-      # DNS Resolution
+      # DNS resolution
       # --------------------------------------------------------
 
       begin
@@ -47,20 +49,21 @@ module Infrastructure
       end
 
       # --------------------------------------------------------
-      # ICMP Reachability
+      # ICMP reachability
       # --------------------------------------------------------
 
       if resolved_ip.present?
         begin
-          output, error_output, status = Timeout.timeout(PING_TIMEOUT) do
-            Open3.capture3(
-              "ping",
-              "-n",
-              "-c", "1",
-              "-W", "2",
-              resolved_ip
-            )
-          end
+          output, error_output, status =
+            Timeout.timeout(PING_TIMEOUT) do
+              Open3.capture3(
+                "ping",
+                "-n",
+                "-c", "1",
+                "-W", "2",
+                resolved_ip
+              )
+            end
 
           if status.success?
             icmp_status = "Reachable"
@@ -69,10 +72,7 @@ module Infrastructure
             response_ms = match[1].to_f if match
           else
             icmp_status = "Unreachable"
-
-            if error_output.present?
-              errors << error_output.strip
-            end
+            errors << error_output.strip if error_output.present?
           end
 
         rescue Timeout::Error
@@ -92,13 +92,31 @@ module Infrastructure
       end
 
       # --------------------------------------------------------
-      # Save Latest Status and Historical Result Atomically
+      # Fenced transactional persistence
       # --------------------------------------------------------
 
       checked_at = Time.current
       diagnostic = errors.join("; ").presence
 
       InfrastructureAsset.transaction do
+        if @monitoring_run
+          raise ArgumentError, "Execution token required" if
+            @execution_token.blank?
+
+          # Lock the run before locking the asset.
+          # Recovery must coordinate through this same row.
+          @monitoring_run.lock!
+
+          unless @monitoring_run.status == "Running" &&
+                 @monitoring_run.execution_token == @execution_token
+            raise Infrastructure::ConnectivityBatchJob::ExecutionOwnershipLost,
+                  "Monitoring run #{@monitoring_run.id} ownership lost"
+          end
+        end
+
+        # Lock the asset while persisting connectivity results.
+        @asset.lock!
+
         @asset.update!(
           dns_status: dns_status,
           resolved_ip_address: resolved_ip,
@@ -120,7 +138,8 @@ module Infrastructure
         )
 
         Infrastructure::IncidentDetector.new(
-          @asset, connectivity_result: connectivity_result
+          @asset,
+          connectivity_result: connectivity_result
         ).call
       end
 

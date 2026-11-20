@@ -1,18 +1,28 @@
 
 # frozen_string_literal: true
 
+require "securerandom"
+
 module Infrastructure
   class ConnectivityBatchJob < ApplicationJob
     queue_as :default
 
+    class ExecutionOwnershipLost < StandardError; end
+
     def perform(monitoring_run_id, asset_ids)
+      execution_token = SecureRandom.uuid
+
       now = Time.current
 
-      # Atomically claim the queued monitoring run.
       claimed = InfrastructureMonitoringRun
-                .where(id: monitoring_run_id, status: "Queued")
+                .where(
+                  id: monitoring_run_id,
+                  status: "Queued",
+                  execution_token: nil
+                )
                 .update_all(
                   status: "Running",
+                  execution_token: execution_token,
                   started_at: now,
                   heartbeat_at: now,
                   updated_at: now
@@ -21,7 +31,7 @@ module Infrastructure
       unless claimed == 1
         Rails.logger.warn(
           "[Infrastructure] Monitoring run #{monitoring_run_id} " \
-          "was not queued; skipping duplicate execution"
+          "could not be claimed; skipping execution"
         )
         return
       end
@@ -29,26 +39,28 @@ module Infrastructure
       run = InfrastructureMonitoringRun.find(monitoring_run_id)
 
       Rails.logger.info(
-        "[Infrastructure] Monitoring run #{run.id} started " \
-        "for #{asset_ids.size} assets"
+        "[Infrastructure] Monitoring run #{run.id} started, " \
+        "execution_token=#{execution_token}, " \
+        "assets=#{asset_ids.size}"
       )
 
       begin
         asset_ids.each do |asset_id|
-          # Refresh the heartbeat before processing an asset.
-          run.update_columns(
-            heartbeat_at: Time.current,
-            updated_at: Time.current
-          )
+          refresh_heartbeat!(run.id, execution_token)
 
           asset = InfrastructureAsset.find_by(id: asset_id)
 
           unless asset
-            run.increment!(:processed_assets)
-            run.increment!(:failed_checks)
+            record_progress!(
+              run.id,
+              execution_token: execution_token,
+              processed: 1,
+              failed: 1
+            )
 
             Rails.logger.warn(
-              "[Infrastructure] Asset #{asset_id} no longer exists"
+              "[Infrastructure] Run=#{run.id}, " \
+              "asset_id=#{asset_id} no longer exists"
             )
 
             next
@@ -57,16 +69,36 @@ module Infrastructure
           begin
             Infrastructure::ConnectivityCheck.new(
               asset,
-              monitoring_run: run
+              monitoring_run: run,
+              execution_token: execution_token
             ).call
+
+            asset.reload
 
             case asset.icmp_status
             when "Reachable"
-              run.increment!(:reachable_assets)
+              record_progress!(
+                run.id,
+                execution_token: execution_token,
+                processed: 1,
+                reachable: 1
+              )
+
             when "Unreachable"
-              run.increment!(:unreachable_assets)
+              record_progress!(
+                run.id,
+                execution_token: execution_token,
+                processed: 1,
+                unreachable: 1
+              )
+
             else
-              run.increment!(:unknown_assets)
+              record_progress!(
+                run.id,
+                execution_token: execution_token,
+                processed: 1,
+                unknown: 1
+              )
             end
 
             Rails.logger.info(
@@ -76,34 +108,38 @@ module Infrastructure
               "ICMP=#{asset.icmp_status}"
             )
 
+          rescue ExecutionOwnershipLost
+            raise
+
           rescue StandardError => e
-            run.increment!(:failed_checks)
+            record_progress!(
+              run.id,
+              execution_token: execution_token,
+              processed: 1,
+              failed: 1
+            )
 
             Rails.logger.error(
               "[Infrastructure] Run=#{run.id}, " \
               "asset=#{asset.hostname}, " \
               "error=#{e.class}: #{e.message}"
             )
-
-          ensure
-            run.increment!(:processed_assets)
           end
         end
 
-        run.update!(
-          status: "Completed",
-          completed_at: Time.current,
-          heartbeat_at: Time.current
-        )
+        complete_run!(run.id, execution_token)
 
         Rails.logger.info(
-          "[Infrastructure] Monitoring run #{run.id} completed: " \
-          "processed=#{run.processed_assets}, " \
-          "reachable=#{run.reachable_assets}, " \
-          "unreachable=#{run.unreachable_assets}, " \
-          "unknown=#{run.unknown_assets}, " \
-          "errors=#{run.failed_checks}"
+          "[Infrastructure] Monitoring run #{run.id} completed"
         )
+
+      rescue ExecutionOwnershipLost => e
+        Rails.logger.warn(
+          "[Infrastructure] Monitoring run #{run.id} stopped: " \
+          "#{e.message}"
+        )
+
+        return
 
       rescue StandardError => e
         Rails.logger.error(
@@ -111,18 +147,94 @@ module Infrastructure
           "#{e.class}: #{e.message}"
         )
 
-        InfrastructureMonitoringRun
-          .where(id: run.id, status: "Running")
-          .update_all(
-            status: "Failed",
-            completed_at: Time.current,
-            heartbeat_at: Time.current,
-            error_message: "#{e.class}: #{e.message}".truncate(2000),
-            updated_at: Time.current
-          )
-
+        fail_run!(run.id, execution_token, e)
         raise
       end
+    end
+
+    private
+
+    def owned_run(run_id, execution_token)
+      InfrastructureMonitoringRun.where(
+        id: run_id,
+        status: "Running",
+        execution_token: execution_token
+      )
+    end
+
+    def refresh_heartbeat!(run_id, execution_token)
+      now = Time.current
+
+      updated = owned_run(run_id, execution_token).update_all(
+        heartbeat_at: now,
+        updated_at: now
+      )
+
+      ensure_ownership!(run_id, updated)
+    end
+
+    def record_progress!(
+      run_id,
+      execution_token:,
+      processed: 0,
+      reachable: 0,
+      unreachable: 0,
+      unknown: 0,
+      failed: 0
+    )
+      now = Time.current
+
+      updated = owned_run(run_id, execution_token).update_all(
+        [
+          "processed_assets = processed_assets + ?, " \
+          "reachable_assets = reachable_assets + ?, " \
+          "unreachable_assets = unreachable_assets + ?, " \
+          "unknown_assets = unknown_assets + ?, " \
+          "failed_checks = failed_checks + ?, " \
+          "heartbeat_at = ?, updated_at = ?",
+          processed,
+          reachable,
+          unreachable,
+          unknown,
+          failed,
+          now,
+          now
+        ]
+      )
+
+      ensure_ownership!(run_id, updated)
+    end
+
+    def complete_run!(run_id, execution_token)
+      now = Time.current
+
+      updated = owned_run(run_id, execution_token).update_all(
+        status: "Completed",
+        completed_at: now,
+        heartbeat_at: now,
+        updated_at: now
+      )
+
+      ensure_ownership!(run_id, updated)
+    end
+
+    def fail_run!(run_id, execution_token, error)
+      now = Time.current
+
+      owned_run(run_id, execution_token).update_all(
+        status: "Failed",
+        completed_at: now,
+        heartbeat_at: now,
+        error_message: "#{error.class}: #{error.message}".truncate(2000),
+        updated_at: now
+      )
+    end
+
+    def ensure_ownership!(run_id, affected_rows)
+      return if affected_rows == 1
+
+      raise ExecutionOwnershipLost,
+            "Monitoring run #{run_id} execution ownership lost"
     end
   end
 end

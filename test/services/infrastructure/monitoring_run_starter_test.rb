@@ -150,6 +150,50 @@ class Infrastructure::MonitoringRunStarterTest < ActiveSupport::TestCase
     end
   end
 
+ # ----------------------------------------------------------
+  # TEST 6
+  # Worker starts before Active Job UUID persistence.
+  #
+  # The starter must not overwrite the worker's Running
+  # status, execution token, or heartbeat.
+  # ----------------------------------------------------------
+
+  test "preserves worker ownership when worker starts before identity persistence" do
+    job = Struct.new(:job_id).new(SecureRandom.uuid)
+    worker_token = SecureRandom.uuid
+    worker_started_at = 1.minute.ago
+
+    with_eligible_assets do
+      Infrastructure::ConnectivityBatchJob.stub(
+        :perform_later,
+        ->(run_id, _asset_ids) {
+          InfrastructureMonitoringRun
+            .where(id: run_id, status: "Queued")
+            .update_all(
+              status: "Running",
+              execution_token: worker_token,
+              started_at: worker_started_at,
+              heartbeat_at: worker_started_at,
+              updated_at: Time.current
+            )
+
+          job
+        }
+      ) do
+        run = @starter.call
+        run.reload
+
+        assert_equal "Running", run.status
+        assert_equal job.job_id, run.active_job_id
+        assert_equal worker_token, run.execution_token
+        assert_not_nil run.started_at
+        assert_not_nil run.heartbeat_at
+        assert_nil run.completed_at
+      end
+    end
+  end
+
+
   private
 
   # ----------------------------------------------------------
