@@ -1,42 +1,139 @@
+
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
   <head>
-    <title><%= content_for(:title) || "HERGA Corporate Portal" %></title>
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="application-name" content="Herga Portal">
-    <meta name="mobile-web-app-capable" content="yes">
+
+    <title>
+      <%= content_for(:title) || "HERGA Corporate Portal" %>
+    </title>
+
+    <meta name="viewport"
+          content="width=device-width,initial-scale=1">
+
+    <meta name="apple-mobile-web-app-capable"
+          content="yes">
+
+    <meta name="application-name"
+          content="HERGA Corporate Portal">
+
+    <meta name="mobile-web-app-capable"
+          content="yes">
+
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 
     <%= yield :head %>
 
-    <%# Enable PWA manifest for installable apps (make sure to enable in config/routes.rb too!) %>
-    <%#= tag.link rel: "manifest", href: pwa_manifest_path(format: :json) %>
+    <link rel="icon"
+          href="/icon.png"
+          type="image/png">
 
-    <link rel="icon" href="/icon.png" type="image/png">
-    <link rel="icon" href="/icon.svg" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="/icon.png">
+    <link rel="icon"
+          href="/icon.svg"
+          type="image/svg+xml">
 
-    <%# Includes all stylesheet files in app/assets/stylesheets %>
-    <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
+    <link rel="apple-touch-icon"
+          href="/icon.png">
+
+    <%= stylesheet_link_tag "application",
+                            "data-turbo-track": "reload" %>
+
     <%= javascript_importmap_tags %>
+
   </head>
 
   <body>
+
+    <%# ======================================================== %>
+    <%# SHARED CORPORATE NAVIGATION                              %>
+    <%# ======================================================== %>
+
     <%= render "layouts/header" %>
-    <%= yield %>
 
+    <%# ======================================================== %>
+    <%# FLASH MESSAGES                                          %>
+    <%# ======================================================== %>
 
-    <%# Corporate footer. %>
-    <footer class="text-center py-4 text-muted">
+    <% if notice.present? || alert.present? %>
 
-      <small>
-        HERGA.NET Corporate Services
-        &copy; <%= Time.current.year %>
-      </small>
+      <div class="container-fluid mt-3">
 
-    </footer>
+        <% if notice.present? %>
+
+          <div class="alert alert-success alert-dismissible fade show"
+               role="alert">
+
+            <%= notice %>
+
+            <button type="button"
+                    class="btn-close"
+                    data-bs-dismiss="alert"
+                    aria-label="Close">
+            </button>
+
+          </div>
+
+        <% end %>
+
+        <% if alert.present? %>
+
+          <div class="alert alert-danger alert-dismissible fade show"
+               role="alert">
+
+            <%= alert %>
+
+            <button type="button"
+                    class="btn-close"
+                    data-bs-dismiss="alert"
+                    aria-label="Close">
+            </button>
+
+          </div>
+
+        <% end %>
+
+      </div>
+
+    <% end %>
+
+    <%# ======================================================== %>
+    <%# MAIN PAGE CONTENT                                       %>
+    <%# ======================================================== %>
+
+    <main id="main-content">
+
+      <%= yield %>
+
+    </main>
+
+    <%# ======================================================== %>
+    <%# CORPORATE FOOTER                                        %>
+    <%# ======================================================== %>
+
+    <% if user_signed_in? %>
+
+      <footer class="text-center py-4 text-muted border-top">
+
+        <small>
+
+          HERGA.NET Corporate Services
+          &copy; <%= Time.current.year %>
+
+          <span class="mx-2">|</span>
+
+          Authenticated as
+          <strong>
+            <%= current_user.username.presence ||
+                "Portal User" %>
+          </strong>
+
+        </small>
+
+      </footer>
+
+    <% end %>
 
   </body>
+
 </html>
