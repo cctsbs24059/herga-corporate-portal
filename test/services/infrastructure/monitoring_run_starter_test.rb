@@ -86,7 +86,9 @@ class Infrastructure::MonitoringRunStarterTest < ActiveSupport::TestCase
 
   # ----------------------------------------------------------
   # TEST 4
-  # Job successfully enqueued, but UUID persistence fails
+  # Job successfully enqueued, but UUID persistence fails.
+  #
+  # Simulate failure of the actual update_all operation.
   #
   # Critical safeguard:
   # The monitoring run must NOT be marked Failed because
@@ -98,19 +100,24 @@ class Infrastructure::MonitoringRunStarterTest < ActiveSupport::TestCase
 
     with_eligible_assets do
       Infrastructure::ConnectivityBatchJob.stub(:perform_later, job) do
-        original_create = InfrastructureMonitoringRun.method(:create!)
+        original_where = InfrastructureMonitoringRun.method(:where)
 
         InfrastructureMonitoringRun.stub(
-          :create!,
-          ->(**attributes) {
-            run = original_create.call(**attributes)
+          :where,
+          ->(*args, **kwargs) {
+            relation = original_where.call(*args, **kwargs)
 
-            run.define_singleton_method(:update!) do |**_values|
-              raise ActiveRecord::RecordInvalid,
-                    "Simulated identity persistence failure"
+            if kwargs.key?(:active_job_id) &&
+               kwargs[:active_job_id].nil? &&
+               kwargs.key?(:id)
+
+              relation.define_singleton_method(:update_all) do |_attributes|
+                raise ActiveRecord::StatementInvalid,
+                      "Simulated identity persistence failure"
+              end
             end
 
-            run
+            relation
           }
         ) do
           error = assert_raises(
@@ -150,7 +157,7 @@ class Infrastructure::MonitoringRunStarterTest < ActiveSupport::TestCase
     end
   end
 
- # ----------------------------------------------------------
+  # ----------------------------------------------------------
   # TEST 6
   # Worker starts before Active Job UUID persistence.
   #
@@ -192,7 +199,6 @@ class Infrastructure::MonitoringRunStarterTest < ActiveSupport::TestCase
       end
     end
   end
-
 
   private
 

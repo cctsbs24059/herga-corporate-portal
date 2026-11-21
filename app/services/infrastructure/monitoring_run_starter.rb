@@ -28,9 +28,6 @@ module Infrastructure
 
       # --------------------------------------------------------
       # 3. Enqueue the connectivity batch job
-      #
-      # Only errors from perform_later are classified as
-      # enqueue failures.
       # --------------------------------------------------------
 
       begin
@@ -58,16 +55,35 @@ module Infrastructure
       # --------------------------------------------------------
       # 4. Persist the Active Job UUID
       #
-      # The job has already been accepted by Solid Queue.
+      # The worker may already be Running or Completed.
       #
-      # Do not mark the run Failed if this update fails.
-      # The background worker may already be processing it.
+      # Use a conditional database update to avoid model
+      # validations and prevent replacing another job ID.
       # --------------------------------------------------------
 
       begin
-        run.update!(
-          active_job_id: job.job_id
-        )
+        now = Time.current
+
+        updated = InfrastructureMonitoringRun
+                  .where(id: run.id, active_job_id: nil)
+                  .update_all(
+                    active_job_id: job.job_id,
+                    updated_at: now
+                  )
+
+        if updated == 0
+          current_job_id = InfrastructureMonitoringRun
+                           .where(id: run.id)
+                           .pick(:active_job_id)
+
+          unless current_job_id == job.job_id
+            raise JobIdentityPersistenceFailed,
+                  "Monitoring run #{run.id} has a different " \
+                  "or unavailable job identity"
+          end
+        end
+
+        run.reload
 
       rescue StandardError => e
         Rails.logger.error(
@@ -89,7 +105,8 @@ module Infrastructure
       Rails.logger.info(
         "[Infrastructure] Monitoring run #{run.id} queued " \
         "for #{asset_ids.size} assets, " \
-        "active_job_id=#{job.job_id}"
+        "active_job_id=#{job.job_id}, " \
+        "status=#{run.status}"
       )
 
       run
@@ -97,10 +114,10 @@ module Infrastructure
 
     private
 
-    # ----------------------------------------------------------
+    # --------------------------------------------------------
     # Create a monitoring run with database-level protection
     # against overlapping Queued or Running runs.
-    # ----------------------------------------------------------
+    # --------------------------------------------------------
 
     def create_monitoring_run!(total_assets)
       InfrastructureMonitoringRun.create!(
@@ -113,12 +130,9 @@ module Infrastructure
             "An infrastructure monitoring run is already active"
     end
 
-    # ----------------------------------------------------------
-    # Mark a run Failed only if it remains Queued.
-    #
-    # The conditional update avoids overwriting a run whose
-    # state has already changed.
-    # ----------------------------------------------------------
+    # --------------------------------------------------------
+    # Mark a run Failed only while it remains Queued.
+    # --------------------------------------------------------
 
     def fail_queued_run(run, reason)
       now = Time.current
