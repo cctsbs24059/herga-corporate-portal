@@ -23,13 +23,9 @@ class InfrastructureIncidentsController < ApplicationController
   def index
     @status_filter = params[:status].to_s
 
-    @incidents = InfrastructureIncident
-                 .includes(:infrastructure_asset, :assigned_to)
-                 .recent
-
-    if InfrastructureIncident::STATUSES.include?(@status_filter)
-      @incidents = @incidents.where(status: @status_filter)
-    end
+    # --------------------------------------------------------
+    # Incident statistics
+    # --------------------------------------------------------
 
     @total_incidents = InfrastructureIncident.count
 
@@ -37,10 +33,41 @@ class InfrastructureIncidentsController < ApplicationController
       InfrastructureIncident.open_incidents.count
 
     @acknowledged_count =
-      InfrastructureIncident.where(status: "Acknowledged").count
+      InfrastructureIncident
+        .where(status: "Acknowledged")
+        .count
 
     @resolved_count =
       InfrastructureIncident.resolved.count
+
+    # Includes both Open and Acknowledged incidents.
+    # Required by the incident register view.
+    @unresolved_incident_count =
+      InfrastructureIncident.unresolved.count
+
+    @critical_incident_count =
+      InfrastructureIncident
+        .unresolved
+        .where(severity: "Critical")
+        .count
+
+    # --------------------------------------------------------
+    # Incident filtering
+    # --------------------------------------------------------
+
+    @incidents =
+      InfrastructureIncident
+        .includes(:infrastructure_asset, :assigned_to)
+        .recent
+
+    if InfrastructureIncident::STATUSES.include?(@status_filter)
+      @incidents =
+        @incidents.where(status: @status_filter)
+    end
+
+    # --------------------------------------------------------
+    # Pagination
+    # --------------------------------------------------------
 
     @incidents = @incidents.paginate(
       page: params[:page],
@@ -53,15 +80,20 @@ class InfrastructureIncidentsController < ApplicationController
   # ----------------------------------------------------------
 
   def show
-    @events = @incident.infrastructure_incident_events
-                       .includes(:user)
-                       .recent
+    @events =
+      @incident
+        .infrastructure_incident_events
+        .includes(:user)
+        .recent
 
-    # Assignment candidates are local profiles.
-    # This flag is updated during successful AD login.
-    # It is not a substitute for live AD authorization.
-    @administrators = User.where(admin: true)
-                          .order(:username)
+    # Assignment candidates are local administrator profiles.
+    # Administrator status is refreshed during successful AD
+    # login and is not a substitute for live AD authorization.
+
+    @administrators =
+      User
+        .where(admin: true)
+        .order(:username)
   end
 
   # ----------------------------------------------------------
@@ -152,9 +184,11 @@ class InfrastructureIncidentsController < ApplicationController
     when :updated
       redirect_to infrastructure_incident_path(@incident),
                   notice: "Incident assignment updated."
+
     when :unchanged
       redirect_to infrastructure_incident_path(@incident),
                   notice: "Incident is already assigned to this administrator."
+
     else
       redirect_to infrastructure_incident_path(@incident),
                   alert: "Resolved incidents cannot be reassigned."

@@ -1,0 +1,822 @@
+
+<% provide(:title, "Infrastructure Monitoring") %>
+
+<%# ============================================================
+    HERGA Corporate Portal
+    Phase 2D.7 - Infrastructure Monitoring Dashboard
+    ============================================================ %>
+
+<%
+  card_style = "background:#fff;border:1px solid #dce3ed;border-radius:10px;box-shadow:0 2px 8px rgba(20,35,60,.045);height:100%;"
+  card_header_style = "padding:16px 20px;border-bottom:1px solid #e8edf3;font-size:16px;font-weight:600;color:#253955;"
+  card_body_style = "padding:20px;"
+  muted_style = "color:#68788d;"
+  section_title_style = "font-size:19px;font-weight:600;color:#243853;margin:0;"
+  table_style = "width:100%;border-collapse:collapse;"
+  badge_base = "display:inline-block;padding:5px 10px;border-radius:6px;font-size:12px;font-weight:600;"
+%>
+
+<div class="container-fluid"
+     style="background:#f5f7fb;min-height:100vh;padding:24px 28px;">
+
+  <%# ==================== PAGE HEADER ==================== %>
+
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3"
+       style="margin-bottom:20px;">
+
+    <div>
+      <h1 style="font-size:27px;font-weight:700;color:#20334e;margin:0 0 6px;">
+        Infrastructure Monitoring
+      </h1>
+
+      <div style="font-size:14px;<%= muted_style %>">
+        HERGA Corporate Portal / Infrastructure Operations &amp; Resilience
+      </div>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2">
+
+      <%= link_to infrastructure_monitoring_path,
+                  class: "btn btn-outline-secondary" do %>
+        &#8635; Refresh
+      <% end %>
+
+      <%= link_to infrastructure_assets_path,
+                  class: "btn btn-primary" do %>
+        Asset Inventory
+      <% end %>
+
+      <%= link_to infrastructure_incidents_path,
+                  class: "btn btn-outline-secondary" do %>
+        Incidents
+      <% end %>
+
+    </div>
+  </div>
+
+  <%# ==================== BREADCRUMBS ==================== %>
+
+  <nav aria-label="breadcrumb"
+       style="margin-bottom:24px;font-size:13px;">
+
+    <%= link_to "Dashboard", root_path,
+                style: "text-decoration:none;" %>
+
+    <span style="color:#9ca9b9;margin:0 10px;">/</span>
+
+    <%= link_to "Infrastructure Assets",
+                infrastructure_assets_path,
+                style: "text-decoration:none;" %>
+
+    <span style="color:#9ca9b9;margin:0 10px;">/</span>
+
+    <strong style="color:#34465f;">Monitoring</strong>
+
+  </nav>
+
+  <%# ==================== KPI SUMMARY ==================== %>
+
+  <div class="row g-3" style="margin-bottom:24px;">
+
+    <%
+      metrics = [
+        {
+          title: "Monitored Assets",
+          value: @eligible_assets,
+          detail: "#{@total_assets} registered assets",
+          accent: "#315b9b",
+          background: "#edf3fc",
+          symbol: "▣"
+        },
+        {
+          title: "Reachable",
+          value: @reachable_assets,
+          detail: "Latest ICMP status",
+          accent: "#16825d",
+          background: "#e7f5ee",
+          symbol: "✓"
+        },
+        {
+          title: "Unreachable",
+          value: @unreachable_assets,
+          detail: "Requires investigation",
+          accent: "#c34646",
+          background: "#fceced",
+          symbol: "!"
+        },
+        {
+          title: "Unknown",
+          value: @unknown_assets,
+          detail: "Unconfirmed connectivity",
+          accent: "#a36a16",
+          background: "#fff3df",
+          symbol: "?"
+        }
+      ]
+    %>
+
+    <% metrics.each do |metric| %>
+
+      <div class="col-12 col-sm-6 col-xl-3">
+
+        <div style="<%= card_style %>padding:20px;border-left:4px solid <%= metric[:accent] %>;">
+          <div class="d-flex justify-content-between align-items-start">
+
+            <div>
+              <div style="font-size:14px;font-weight:600;<%= muted_style %>">
+                <%= metric[:title] %>
+              </div>
+
+              <div style="font-size:35px;font-weight:700;color:#213550;margin:8px 0 3px;">
+                <%= metric[:value] %>
+              </div>
+
+              <div style="font-size:12px;<%= muted_style %>">
+                <%= metric[:detail] %>
+              </div>
+            </div>
+
+            <div style="width:42px;height:42px;border-radius:10px;background:<%= metric[:background] %>;color:<%= metric[:accent] %>;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:700;">
+              <%= metric[:symbol] %>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+    <% end %>
+
+  </div>
+
+  <%# ==================== OPERATIONS ==================== %>
+
+  <div class="row g-3" style="margin-bottom:24px;">
+
+    <div class="col-12 col-xl-8">
+
+      <div style="<%= card_style %>">
+
+        <div style="<%= card_header_style %>">
+          Monitoring Operations
+        </div>
+
+        <div style="<%= card_body_style %>">
+
+          <div class="row g-4">
+
+            <div class="col-12 col-md-6">
+
+              <h3 style="<%= section_title_style %>font-size:16px;margin-bottom:15px;">
+                Current Monitoring Run
+              </h3>
+
+              <% if @active_monitoring_run.present? %>
+
+                <% run = @active_monitoring_run %>
+
+                <div style="margin-bottom:12px;">
+                  <span style="<%= badge_base %>background:#e6f0ff;color:#2458a5;">
+                    <%= run.status %>
+                  </span>
+
+                  <strong style="margin-left:8px;color:#253955;">
+                    Run #<%= run.id %>
+                  </strong>
+                </div>
+
+                <p style="font-size:13px;<%= muted_style %>">
+                  <%= run.processed_assets %> of
+                  <%= run.total_assets %> assets processed
+                </p>
+
+                <div style="height:10px;background:#e8edf4;border-radius:8px;overflow:hidden;">
+                  <div style="height:100%;width:<%= run.progress_percentage %>%;background:#3478d4;border-radius:8px;">
+                  </div>
+                </div>
+
+                <p style="font-size:12px;margin-top:8px;<%= muted_style %>">
+                  <%= run.progress_percentage %>% complete
+                </p>
+
+              <% else %>
+
+                <div style="margin-bottom:15px;">
+                  <span style="<%= badge_base %>background:#e6f5ec;color:#167448;">
+                    No Active Run
+                  </span>
+                </div>
+
+                <p style="font-size:13px;line-height:1.7;<%= muted_style %>">
+                  No monitoring run is currently queued or running.
+                  Infrastructure monitoring is available for execution.
+                </p>
+
+              <% end %>
+
+              <% if @last_completed_monitoring_run.present? %>
+
+                <div style="border-top:1px solid #edf0f4;padding-top:14px;margin-top:16px;font-size:13px;">
+                  <span style="<%= muted_style %>">
+                    Last completed run:
+                  </span>
+
+                  <strong>
+                    #<%= @last_completed_monitoring_run.id %>
+                  </strong>
+                </div>
+
+              <% end %>
+
+            </div>
+
+            <div class="col-12 col-md-6">
+
+              <h3 style="<%= section_title_style %>font-size:16px;margin-bottom:15px;">
+                Monitoring Controls
+              </h3>
+
+              <% if @active_monitoring_run.present? %>
+
+                <button type="button"
+                        class="btn btn-secondary w-100"
+                        disabled>
+                  Monitoring In Progress
+                </button>
+
+              <% elsif @eligible_assets.zero? %>
+
+                <button type="button"
+                        class="btn btn-secondary w-100"
+                        disabled>
+                  No Eligible Assets
+                </button>
+
+              <% else %>
+
+                <%= button_to(
+                      "▶ Start Monitoring Run",
+                      check_all_connectivity_infrastructure_assets_path,
+                      method: :post,
+                      class: "btn btn-primary w-100",
+                      form: {
+                        data: {
+                          turbo_confirm: "Start a monitoring run for all eligible infrastructure assets?"
+                        }
+                      }
+                    ) %>
+
+              <% end %>
+
+              <p style="font-size:12px;line-height:1.6;margin-top:12px;<%= muted_style %>">
+                Connectivity checks execute asynchronously through
+                the existing monitoring job infrastructure.
+              </p>
+
+              <div style="border-top:1px solid #edf0f4;padding-top:14px;margin-top:15px;">
+
+                <div style="font-size:12px;<%= muted_style %>">
+                  Last Connectivity Check
+                </div>
+
+                <div style="font-size:14px;font-weight:600;color:#263b57;margin-top:5px;">
+
+                  <% if @last_connectivity_check.present? %>
+                    <%= l(@last_connectivity_check, format: :long) %>
+                  <% else %>
+                    Never
+                  <% end %>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <%# ==================== CONFIGURATION ==================== %>
+
+    <div class="col-12 col-xl-4">
+
+      <div style="<%= card_style %>">
+
+        <div style="<%= card_header_style %>">
+          Monitoring Configuration
+        </div>
+
+        <div style="<%= card_body_style %>">
+
+          <div class="d-flex justify-content-between align-items-center"
+               style="padding-bottom:14px;border-bottom:1px solid #edf0f4;gap:10px;">
+
+            <span style="font-size:13px;color:#34465f;">
+              Scheduled Monitoring
+            </span>
+
+            <% if @scheduled_monitoring_enabled %>
+              <span style="<%= badge_base %>background:#e6f5ec;color:#167448;">
+                Enabled
+              </span>
+            <% else %>
+              <span style="<%= badge_base %>background:#eef0f3;color:#667085;">
+                Disabled
+              </span>
+            <% end %>
+
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center"
+               style="padding:14px 0;border-bottom:1px solid #edf0f4;gap:10px;">
+
+            <span style="font-size:13px;color:#34465f;">
+              Schedule Interval
+            </span>
+
+            <strong style="font-size:13px;">
+              <%= @monitoring_interval_minutes %> minutes
+            </strong>
+
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center"
+               style="padding:14px 0;border-bottom:1px solid #edf0f4;gap:10px;">
+
+            <span style="font-size:13px;color:#34465f;">
+              Automatic Recovery
+            </span>
+
+            <% if @automatic_recovery_enabled %>
+              <span style="<%= badge_base %>background:#e6f5ec;color:#167448;">
+                Enabled
+              </span>
+            <% else %>
+              <span style="<%= badge_base %>background:#eef0f3;color:#667085;">
+                Disabled
+              </span>
+            <% end %>
+
+          </div>
+
+          <div class="d-flex justify-content-between"
+               style="padding:14px 0;border-bottom:1px solid #edf0f4;font-size:13px;">
+
+            <span style="color:#34465f;">Monitoring Runs</span>
+            <strong><%= @total_monitoring_runs %></strong>
+
+          </div>
+
+          <div class="d-flex justify-content-between"
+               style="padding:14px 0;font-size:13px;">
+
+            <span style="color:#34465f;">Historical Checks</span>
+            <strong><%= @historical_check_count %></strong>
+
+          </div>
+
+          <div style="font-size:11px;line-height:1.6;<%= muted_style %>margin-top:8px;">
+            Configuration reflects application flags.
+            Scheduler and worker availability are not verified here.
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <%# ==================== CONNECTIVITY / INVENTORY ==================== %>
+
+  <div class="row g-3" style="margin-bottom:24px;">
+
+    <div class="col-12 col-lg-6">
+
+      <div style="<%= card_style %>">
+
+        <div style="<%= card_header_style %>">
+          Connectivity Overview
+        </div>
+
+        <div style="<%= card_body_style %>">
+
+          <div class="text-center" style="margin-bottom:22px;">
+
+            <div style="font-size:38px;font-weight:700;color:#16825d;">
+              <%= number_with_precision(
+                    @reachability_percentage,
+                    precision: 1
+                  ) %>%
+            </div>
+
+            <div style="font-size:12px;<%= muted_style %>">
+              Eligible assets with a reachable ICMP status
+            </div>
+
+          </div>
+
+          <div style="height:12px;background:#e8edf4;border-radius:8px;overflow:hidden;margin-bottom:20px;">
+            <div style="width:<%= @reachability_percentage %>%;height:100%;background:#23956c;border-radius:8px;">
+            </div>
+          </div>
+
+          <table class="table table-sm" style="<%= table_style %>font-size:13px;">
+
+            <tbody>
+              <tr>
+                <td>Reachable</td>
+                <td class="text-end text-right">
+                  <strong><%= @reachable_assets %></strong>
+                </td>
+              </tr>
+
+              <tr>
+                <td>Unreachable</td>
+                <td class="text-end text-right">
+                  <strong><%= @unreachable_assets %></strong>
+                </td>
+              </tr>
+
+              <tr>
+                <td>Unknown</td>
+                <td class="text-end text-right">
+                  <strong><%= @unknown_assets %></strong>
+                </td>
+              </tr>
+
+              <tr>
+                <td>Never Checked</td>
+                <td class="text-end text-right">
+                  <strong><%= @not_checked_assets %></strong>
+                </td>
+              </tr>
+            </tbody>
+
+          </table>
+
+          <p style="font-size:11px;<%= muted_style %>">
+            Never Checked is a subset of the connectivity categories.
+            This percentage is not a historical uptime SLA.
+          </p>
+
+        </div>
+      </div>
+
+    </div>
+
+    <div class="col-12 col-lg-6">
+
+      <div style="<%= card_style %>">
+
+        <div style="<%= card_header_style %>">
+          Infrastructure Inventory
+        </div>
+
+        <div style="<%= card_body_style %>">
+
+          <table class="table table-sm" style="<%= table_style %>font-size:13px;">
+
+            <tbody>
+              <tr>
+                <td>Total Registered</td>
+                <td class="text-end text-right">
+                  <strong><%= @total_assets %></strong>
+                </td>
+              </tr>
+
+              <tr>
+                <td>Active</td>
+                <td class="text-end text-right">
+                  <strong><%= @active_assets %></strong>
+                </td>
+              </tr>
+
+              <tr>
+                <td>Maintenance</td>
+                <td class="text-end text-right">
+                  <strong><%= @maintenance_assets %></strong>
+                </td>
+              </tr>
+
+              <tr>
+                <td>Retired</td>
+                <td class="text-end text-right">
+                  <strong><%= @retired_assets %></strong>
+                </td>
+              </tr>
+
+              <tr>
+                <td>Active Directory Managed</td>
+                <td class="text-end text-right">
+                  <strong><%= @directory_assets %></strong>
+                </td>
+              </tr>
+
+              <tr>
+                <td>Manually Registered</td>
+                <td class="text-end text-right">
+                  <strong><%= @manual_assets %></strong>
+                </td>
+              </tr>
+            </tbody>
+
+          </table>
+
+          <%= link_to "Open Asset Inventory",
+                      infrastructure_assets_path,
+                      class: "btn btn-outline-primary w-100",
+                      style: "margin-top:12px;" %>
+
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <%# ==================== MONITORING HISTORY ==================== %>
+
+  <div style="<%= card_style %>height:auto;margin-bottom:24px;">
+
+    <div style="<%= card_header_style %>">
+      Recent Monitoring Runs
+    </div>
+
+    <div class="table-responsive">
+
+      <table class="table table-hover align-middle"
+             style="margin-bottom:0;font-size:13px;">
+
+        <thead style="background:#f7f9fc;">
+          <tr>
+            <th style="padding:14px;">Run</th>
+            <th style="padding:14px;">Status</th>
+            <th style="padding:14px;">Created</th>
+            <th style="padding:14px;">Processed</th>
+            <th style="padding:14px;">Reachable</th>
+            <th style="padding:14px;">Unreachable</th>
+            <th style="padding:14px;">Unknown</th>
+            <th style="padding:14px;">Failed</th>
+            <th style="padding:14px;">Progress</th>
+          </tr>
+        </thead>
+
+        <tbody>
+
+          <% @recent_monitoring_runs.each do |run| %>
+
+            <%
+              status_style =
+                case run.status
+                when "Completed"
+                  "background:#e6f5ec;color:#167448;"
+                when "Failed"
+                  "background:#fceced;color:#bd3c3c;"
+                when "Running"
+                  "background:#e6f0ff;color:#2458a5;"
+                else
+                  "background:#eef0f3;color:#667085;"
+                end
+            %>
+
+            <tr>
+              <td style="padding:13px;">
+                <strong>#<%= run.id %></strong>
+              </td>
+
+              <td style="padding:13px;">
+                <span style="<%= badge_base %><%= status_style %>">
+                  <%= run.status %>
+                </span>
+              </td>
+
+              <td style="padding:13px;">
+                <%= l(run.created_at, format: :short) %>
+              </td>
+
+              <td style="padding:13px;">
+                <%= run.processed_assets %> /
+                <%= run.total_assets %>
+              </td>
+
+              <td style="padding:13px;">
+                <%= run.reachable_assets %>
+              </td>
+
+              <td style="padding:13px;">
+                <%= run.unreachable_assets %>
+              </td>
+
+              <td style="padding:13px;">
+                <%= run.unknown_assets %>
+              </td>
+
+              <td style="padding:13px;">
+                <%= run.failed_checks %>
+              </td>
+
+              <td style="padding:13px;">
+                <%= run.progress_percentage %>%
+              </td>
+            </tr>
+
+          <% end %>
+
+          <% if @recent_monitoring_runs.empty? %>
+
+            <tr>
+              <td colspan="9"
+                  class="text-center"
+                  style="padding:30px;color:#68788d;">
+                No monitoring runs have been recorded.
+              </td>
+            </tr>
+
+          <% end %>
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+    <div style="padding:14px 20px;background:#fafbfd;border-top:1px solid #e8edf3;border-radius:0 0 10px 10px;font-size:12px;<%= muted_style %>">
+
+      Completed: <strong><%= @completed_monitoring_runs %></strong>
+      &nbsp; | &nbsp;
+      Failed: <strong><%= @failed_monitoring_runs %></strong>
+      &nbsp; | &nbsp;
+      Running: <strong><%= @running_monitoring_runs %></strong>
+      &nbsp; | &nbsp;
+      Queued: <strong><%= @queued_monitoring_runs %></strong>
+
+    </div>
+
+  </div>
+
+  <%# ==================== INCIDENTS ==================== %>
+
+  <div style="<%= card_style %>height:auto;margin-bottom:24px;">
+
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2"
+         style="<%= card_header_style %>">
+
+      <span>Infrastructure Incidents</span>
+
+      <%= link_to "View All Incidents",
+                  infrastructure_incidents_path,
+                  class: "btn btn-outline-secondary btn-sm" %>
+
+    </div>
+
+    <div style="<%= card_body_style %>">
+
+      <div class="row g-3 text-center">
+
+        <%
+          incident_metrics = [
+            ["Unresolved", @unresolved_incidents, "#b66a24"],
+            ["Critical", @critical_incidents, "#c34646"],
+            ["Acknowledged", @acknowledged_incidents, "#315b9b"],
+            ["Resolved", @resolved_incidents, "#16825d"]
+          ]
+        %>
+
+        <% incident_metrics.each do |label, value, color| %>
+
+          <div class="col-6 col-md-3">
+
+            <div style="padding:14px;background:#f7f9fc;border-radius:8px;">
+
+              <div style="font-size:27px;font-weight:700;color:<%= color %>;">
+                <%= value %>
+              </div>
+
+              <div style="font-size:12px;<%= muted_style %>">
+                <%= label %>
+              </div>
+
+            </div>
+
+          </div>
+
+        <% end %>
+
+      </div>
+
+    </div>
+
+    <div class="table-responsive">
+
+      <table class="table table-hover align-middle"
+             style="font-size:13px;margin-bottom:0;">
+
+        <thead style="background:#f7f9fc;">
+          <tr>
+            <th style="padding:14px;">Incident</th>
+            <th style="padding:14px;">Asset</th>
+            <th style="padding:14px;">Severity</th>
+            <th style="padding:14px;">Status</th>
+            <th style="padding:14px;">Action</th>
+          </tr>
+        </thead>
+
+        <tbody>
+
+          <% @recent_incidents.each do |incident| %>
+
+            <%
+              severity_style =
+                case incident.severity
+                when "Critical"
+                  "background:#fceced;color:#bd3c3c;"
+                when "High"
+                  "background:#fff3df;color:#a36a16;"
+                else
+                  "background:#eef0f3;color:#667085;"
+                end
+            %>
+
+            <tr>
+
+              <td style="padding:13px;">
+                <strong>#<%= incident.id %></strong>
+              </td>
+
+              <td style="padding:13px;">
+
+                <% if incident.infrastructure_asset.present? %>
+
+                  <%= link_to(
+                        incident.infrastructure_asset.hostname,
+                        infrastructure_asset_path(
+                          incident.infrastructure_asset
+                        )
+                      ) %>
+
+                <% else %>
+                  <span style="<%= muted_style %>">
+                    Asset unavailable
+                  </span>
+                <% end %>
+
+              </td>
+
+              <td style="padding:13px;">
+                <span style="<%= badge_base %><%= severity_style %>">
+                  <%= incident.severity %>
+                </span>
+              </td>
+
+              <td style="padding:13px;">
+                <%= incident.status %>
+              </td>
+
+              <td style="padding:13px;">
+                <%= link_to "View",
+                            infrastructure_incident_path(incident),
+                            class: "btn btn-outline-primary btn-sm" %>
+              </td>
+
+            </tr>
+
+          <% end %>
+
+          <% if @recent_incidents.empty? %>
+
+            <tr>
+              <td colspan="5"
+                  class="text-center"
+                  style="padding:30px;color:#68788d;">
+                No unresolved infrastructure incidents.
+              </td>
+            </tr>
+
+          <% end %>
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </div>
+
+  <%# ==================== FOOTER ==================== %>
+
+  <div class="text-center"
+       style="font-size:12px;color:#8995a5;padding:12px 0 20px;">
+
+    HERGA Corporate Portal
+    &nbsp; | &nbsp;
+    Infrastructure Monitoring
+    &nbsp; | &nbsp;
+    Administrator Access
+
+  </div>
+
+</div>

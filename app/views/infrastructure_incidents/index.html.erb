@@ -1,681 +1,572 @@
-<% content_for :title, "Infrastructure Inventory" %>
 
-<div class="container-fluid py-4 px-3 px-lg-4">
+<% content_for :title, "Infrastructure Incident Register" %>
 
-  <!-- Page Header -->
+<%# ============================================================
+    HERGA CORPORATE PORTAL
+    Phase 2D.6.4 - Infrastructure Incident Management
+    Administrator-only Incident Register
+    ============================================================ %>
+
+<div class="container-fluid py-4 px-3 px-lg-4"
+     style="background:#f5f7fb;min-height:100vh;">
+
+  <%# ======================================================== %>
+  <%# PAGE HEADER                                              %>
+  <%# ======================================================== %>
+
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+
     <div>
-      <h2 class="fw-bold mb-1">Infrastructure Inventory</h2>
+      <h2 class="fw-bold mb-1" style="color:#20334e;">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        Infrastructure Incident Register
+      </h2>
+
       <p class="text-muted mb-0">
-        HERGA.NET Enterprise Infrastructure Management
+        HERGA Corporate Portal |
+        Infrastructure Operations &amp; Resilience
       </p>
     </div>
 
     <div class="d-flex flex-wrap gap-2">
-      <%= link_to infrastructure_incidents_path, class: "btn btn-outline-danger" do %>
-        <i class="bi bi-exclamation-triangle me-1"></i>
-        Incident Register
-        <% if @unresolved_incident_count.positive? %>
-          <span class="badge bg-danger ms-1"><%= @unresolved_incident_count %></span>
-        <% end %>
+
+      <%= link_to infrastructure_incidents_path,
+                  class: "btn btn-outline-secondary" do %>
+        <i class="bi bi-arrow-clockwise me-1"></i>
+        Refresh
       <% end %>
 
-      <%= button_to sync_active_directory_infrastructure_assets_path,
-          method: :post,
-          class: "btn btn-outline-primary",
-          form: {
-            data: {
-              turbo_confirm: "Synchronize Windows Servers from HERGA.NET Active Directory?"
-            }
-          } do %>
-        <i class="bi bi-arrow-repeat me-1"></i>
-        Synchronize AD Servers
-      <% end %>
-
-      <%= button_to check_all_connectivity_infrastructure_assets_path,
-          method: :post,
-          disabled: @active_monitoring_run.present?,
-          class: "btn btn-outline-success",
-          form: {
-            data: {
-              turbo_confirm: "Start connectivity monitoring for all non-retired assets?"
-            }
-          } do %>
+      <%= link_to infrastructure_monitoring_path,
+                  class: "btn btn-outline-primary" do %>
         <i class="bi bi-activity me-1"></i>
-        <%= @active_monitoring_run.present? ? "Monitoring in Progress" : "Check All Servers" %>
+        Monitoring Dashboard
       <% end %>
 
-      <%= link_to new_infrastructure_asset_path,
-          class: "btn btn-primary" do %>
-        <i class="bi bi-plus-circle me-1"></i>
-        Register Infrastructure Asset
+      <%= link_to infrastructure_assets_path,
+                  class: "btn btn-primary" do %>
+        <i class="bi bi-hdd-network me-1"></i>
+        Asset Inventory
       <% end %>
+
     </div>
+
   </div>
 
-  <!-- Asset Summary -->
-  <div class="row g-3 mb-4">
-    <% [
-      ["Total Infrastructure Assets", @total_assets, "bi-hdd-network", "text-dark"],
-      ["Active Directory Assets", @ad_assets, "bi-diagram-3", "text-primary"],
-      ["Manually Registered", @manual_assets, "bi-plus-square", "text-dark"],
-      ["Retired Assets", @retired_assets, "bi-archive", "text-secondary"]
-    ].each do |label, count, icon, color| %>
-      <div class="col-md-6 col-xl-3">
-        <div class="card border-0 shadow-sm h-100">
-          <div class="card-body p-4">
-            <div class="small text-muted mb-2">
-              <i class="bi <%= icon %> me-1"></i>
-              <%= label %>
-            </div>
-            <h2 class="fw-bold mb-0 <%= color %>">
-              <%= count %>
-            </h2>
-          </div>
-        </div>
-      </div>
-    <% end %>
-  </div>
+  <%# ======================================================== %>
+  <%# BREADCRUMBS                                              %>
+  <%# ======================================================== %>
 
-  <!-- Health classification based on the most recent monitoring results -->
-  <div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white py-3">
-      <h5 class="fw-bold mb-0"><i class="bi bi-heart-pulse me-2"></i>Infrastructure Health</h5>
-    </div>
-    <div class="card-body p-4">
-      <div class="row g-3">
-        <% [
-          ["Healthy", "success", "bi-check-circle"],
-          ["Warning", "warning", "bi-exclamation-triangle"],
-          ["Critical", "danger", "bi-exclamation-octagon"],
-          ["Unknown", "secondary", "bi-question-circle"],
-          ["Not Monitored", "secondary", "bi-dash-circle"]
-        ].each do |name, color, icon| %>
-          <div class="col-sm-6 col-lg">
-            <div class="border rounded p-3 h-100">
-              <div class="small text-muted mb-2"><i class="bi <%= icon %> me-1"></i><%= name %></div>
-              <h3 class="fw-bold text-<%= color %> mb-0"><%= @health_counts[name] %></h3>
-            </div>
-          </div>
-        <% end %>
-      </div>
-      <p class="small text-muted mt-3 mb-0">
-        Health is inferred from recent DNS/ICMP monitoring; a failed ping does not prove aserver is offline.
-        Stale checks (over 45 minutes) are classified Unknown. Retired assets are Not Monitored.
-      </p>
-    </div>
-  </div>
+  <nav aria-label="breadcrumb" class="mb-4">
 
-  <!-- Persistent Infrastructure Incidents -->
-  <div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
-      <h5 class="fw-bold mb-0">
-        <i class="bi bi-exclamation-triangle me-2"></i>Infrastructure Incidents
-      </h5>
-      <%= link_to infrastructure_incidents_path, class: "btn btn-sm btn-outline-primary" do %>
-        <i class="bi bi-list-check me-1"></i>Manage Incidents
-      <% end %>
-    </div>
+    <div class="small">
 
-    <div class="card-body p-4 pb-3">
-      <div class="row g-3">
-        <% [
-          ["Total", @incident_total, "secondary", "bi-journal-text", nil],
-          ["Open", @open_incident_count, "danger", "bi-exclamation-circle", "Open"],
-          ["Acknowledged", @acknowledged_incident_count, "warning", "bi-check2-circle", "Acknowledged"],
-          ["Unresolved", @unresolved_incident_count, "primary", "bi-activity", nil],
-          ["Critical Unresolved", @critical_incident_count, "danger", "bi-exclamation-octagon", nil],
-          ["Resolved", @resolved_incident_count, "success", "bi-check-circle", "Resolved"]
-        ].each do |label, count, colour, icon, filter| %>
-          <div class="col-sm-6 col-md-4 col-xl-2">
-            <div class="border rounded p-3 h-100">
-              <div class="small text-muted mb-2"><i class="bi <%= icon %> me-1"></i><%= label %></div>
-              <h3 class="fw-bold text-<%= colour %> mb-0"><%= count %></h3>
-              <% if filter.present? %>
-                <%= link_to "View #{label.downcase}", infrastructure_incidents_path(status: filter), class: "small text-decoration-none" %>
-              <% end %>
-            </div>
-          </div>
-        <% end %>
-      </div>
-      <p class="small text-muted mt-3 mb-0">
-        Open and Acknowledged incidents are unresolved. Critical counts include both statuses.
-      </p>
-    </div>
+      <%= link_to "Dashboard",
+                  root_path,
+                  class: "text-decoration-none" %>
 
-    <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
-        <thead class="table-light">
-          <tr>
-            <th>Server</th><th>Type</th><th>Severity</th><th>Status</th>
-            <th>Failures</th><th>First Detected</th><th>Last Observed</th>
-            <th>Resolution</th><th class="text-end">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% @recent_incidents.each do |incident| %>
-            <% severity_class = incident.severity == "Critical" ? "bg-danger" : "bg-warning text-dark" %>
-            <% status_class = { "Open" => "bg-danger", "Acknowledged" => "bg-warning text-dark", "Resolved" => "bg-success" }.fetch(incident.status, "bg-secondary") %>
-            <tr>
-              <td><%= link_to incident.infrastructure_asset.hostname, infrastructure_asset_path(incident.infrastructure_asset) %></td>
-              <td><%= incident.incident_type %></td>
-              <td><span class="badge <%= severity_class %>"><%= incident.severity %></span></td>
-              <td><span class="badge <%= status_class %>"><%= incident.status %></span></td>
-              <td><%= incident.consecutive_failures %></td>
-              <td class="small"><%= l(incident.first_detected_at, format: :short) %></td>
-              <td class="small"><%= l(incident.last_observed_at, format: :short) %></td>
-              <td class="small"><%= incident.resolution_reason.presence || "—" %></td>
-              <td class="text-end">
-                <%= link_to "Manage", infrastructure_incident_path(incident), class: "btn btn-sm btn-outline-primary" %>
-              </td>
-            </tr>
-          <% end %>
-          <% if @recent_incidents.empty? %>
-            <tr><td colspan="9" class="text-center text-muted py-4">
-              No incidents recorded yet. New incidents are created after three consecutive unsuccessful ICMP checks.
-            </td></tr>
-          <% end %>
-        </tbody>
-      </table>
-    </div>
-    <div class="card-footer bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
-      <span class="small text-muted">Connectivity incidents indicate repeated ICMP failures, not confirmed server outages.</span>
-      <%= link_to "View full incident register", infrastructure_incidents_path, class: "small" %>
-    </div>
-  </div>
+      <span class="text-muted mx-2">/</span>
 
-  <!-- Enterprise Connectivity Overview -->
-  <div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
-      <h5 class="fw-bold mb-0">
-        <i class="bi bi-activity me-2"></i>
-        Enterprise Connectivity Overview
-      </h5>
-      <span class="small text-muted">
-        <% if @last_connectivity_check.present? %>
-          Latest check:
-          <%= l(@last_connectivity_check, format: :long) %>
-        <% else %>
-          No connectivity checks recorded
-        <% end %>
-      </span>
-    </div>
+      <%= link_to "Infrastructure Monitoring",
+                  infrastructure_monitoring_path,
+                  class: "text-decoration-none" %>
 
-    <div class="card-body p-4">
-      <div class="row g-3">
-        <% [
-          ["Reachable", @reachable_assets, "success", "bi-check-circle"],
-          ["Unreachable", @unreachable_assets, "danger", "bi-x-circle"],
-          ["Unknown", @unknown_assets, "secondary", "bi-question-circle"],
-          ["Not Checked", @not_checked_assets, "secondary", "bi-clock-history"]
-        ].each do |label, count, color, icon| %>
-          <div class="col-md-6 col-xl-3">
-            <div class="border rounded p-3 h-100">
-              <div class="small text-muted mb-2">
-                <i class="bi <%= icon %> me-1"></i>
-                <%= label %>
-              </div>
-              <h2 class="fw-bold text-<%= color %> mb-0">
-                <%= count %>
-              </h2>
-            </div>
-          </div>
-        <% end %>
-      </div>
+      <span class="text-muted mx-2">/</span>
 
-      <div class="small text-muted mt-3">
-        <i class="bi bi-info-circle me-1"></i>
-        Results reflect the latest checks from the HERGA Portal application
-        server. ICMP failures do not necessarily mean a server is offline.
-      </div>
-    </div>
-  </div>
-
-  <!-- Automated Monitoring Configuration -->
-  <div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white py-3">
-      <h5 class="fw-bold mb-0">
-        <i class="bi bi-calendar-check me-2"></i>
-        Automated Infrastructure Monitoring
-      </h5>
-    </div>
-    <div class="card-body p-4">
-      <div class="row g-3 align-items-center">
-        <div class="col-md-4">
-          <div class="small text-muted mb-1">Scheduled monitoring</div>
-          <span class="badge <%= @scheduled_monitoring_enabled ? 'bg-success' : 'bg-secondary' %>">
-            <%= @scheduled_monitoring_enabled ? 'Enabled in application' : 'Disabled' %>
-          </span>
-        </div>
-        <div class="col-md-4">
-          <div class="small text-muted mb-1">Configured interval</div>
-          <strong>Every <%= @monitoring_interval_minutes %> minutes</strong>
-        </div>
-        <div class="col-md-4">
-          <div class="small text-muted mb-1">Last completed run</div>
-          <% if @last_completed_monitoring_run.present? %>
-            <strong>#<%= @last_completed_monitoring_run.id %></strong>
-            <div class="small text-muted">
-              <%= l(@last_completed_monitoring_run.completed_at || @last_completed_monitoring_run.updated_at, format: :short) %>
-            </div>
-          <% else %>
-            <span class="text-muted">None recorded</span>
-          <% end %>
-        </div>
-      </div>
-      <div class="small text-muted mt-3">
-        <i class="bi bi-info-circle me-1"></i>
-        Enabled status reflects the application environment variable, not live scheduler health.
-        Recurring checks require the Solid Queue scheduler and worker to remain running.
-        The interval is configured in <code>config/recurring.yml</code>.
-      </div>
-    </div>
-  </div>
-
-  <!-- Active Monitoring Run -->
-  <% if @active_monitoring_run.present? %>
-    <div class="card border-primary shadow-sm mb-4">
-      <div class="card-body p-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h5 class="fw-bold mb-0">
-            <i class="bi bi-arrow-repeat me-2"></i>
-            Monitoring Run #<%= @active_monitoring_run.id %>
-          </h5>
-          <span class="badge bg-primary">
-            <%= @active_monitoring_run.status %>
-          </span>
-        </div>
-
-        <div class="progress mb-3"
-             role="progressbar"
-             aria-label="Monitoring progress"
-             aria-valuenow="<%= @active_monitoring_run.progress_percentage %>"
-             aria-valuemin="0"
-             aria-valuemax="100">
-          <div class="progress-bar progress-bar-striped progress-bar-animated"
-               style="width: <%= @active_monitoring_run.progress_percentage %>%">
-            <%= @active_monitoring_run.progress_percentage %>%
-          </div>
-        </div>
-
-        <div class="small text-muted">
-          <%= @active_monitoring_run.processed_assets %>
-          of
-          <%= @active_monitoring_run.total_assets %>
-          assets processed.
-          Refresh this page to update progress.
-        </div>
-      </div>
-    </div>
-  <% end %>
-
-  <!-- Recent Monitoring Runs -->
-  <div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center">
-      <strong>
-        <i class="bi bi-clock-history me-2"></i>
-        Recent Monitoring Runs
+      <strong style="color:#34465f;">
+        Incident Register
       </strong>
-      <span class="badge bg-secondary">
-        <%= @historical_check_count %> Historical Checks
-      </span>
+
     </div>
 
-    <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
-        <thead class="table-light">
-          <tr>
-            <th>Run</th>
-            <th>Started / Queued</th>
-            <th>Status</th>
-            <th>Processed</th>
-            <th>Reachable</th>
-            <th>Unreachable</th>
-            <th>Unknown</th>
-            <th>Errors</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% @recent_monitoring_runs.each do |run| %>
-            <tr>
-              <td>#<%= run.id %></td>
-              <td>
-                <%= l(run.started_at || run.created_at, format: :short) %>
-              </td>
-              <td>
-                <% run_badge =
-                    case run.status
-                    when "Completed" then "bg-success"
-                    when "Failed" then "bg-danger"
-                    when "Running" then "bg-primary"
-                    else "bg-secondary"
-                    end %>
-                <span class="badge <%= run_badge %>">
-                  <%= run.status %>
-                </span>
-              </td>
-              <td><%= run.processed_assets %> / <%= run.total_assets %></td>
-              <td><%= run.reachable_assets %></td>
-              <td><%= run.unreachable_assets %></td>
-              <td><%= run.unknown_assets %></td>
-              <td><%= run.failed_checks %></td>
-            </tr>
-          <% end %>
+  </nav>
 
-          <% if @recent_monitoring_runs.empty? %>
-            <tr>
-              <td colspan="8" class="text-center text-muted py-4">
-                No monitoring runs recorded yet.
-              </td>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
-    </div>
-  </div>
+  <%# ======================================================== %>
+  <%# INCIDENT SUMMARY                                         %>
+  <%# ======================================================== %>
 
-  <!-- Operating System and Classification -->
-  <div class="row g-4 mb-4">
-    <div class="col-lg-6">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-header bg-white py-3">
-          <strong>
-            <i class="bi bi-windows me-2"></i>
-            Operating System Breakdown
-          </strong>
-        </div>
-        <div class="card-body p-4">
-          <% @os_breakdown.each do |os, count| %>
-            <% percentage = @total_assets.positive? ? (count.to_f / @total_assets * 100).round(1) : 0 %>
-            <div class="mb-3">
-              <div class="d-flex justify-content-between mb-2">
-                <span class="small"><%= os %></span>
-                <strong class="small"><%= count %></strong>
+  <div class="row g-3 mb-4">
+
+    <%
+      summary_cards = [
+        {
+          label: "Total Incidents",
+          count: @total_incidents,
+          icon: "bi-journal-text",
+          color: "#315b9b",
+          background: "#edf3fc"
+        },
+        {
+          label: "Open",
+          count: @open_count,
+          icon: "bi-exclamation-circle",
+          color: "#c34646",
+          background: "#fceced"
+        },
+        {
+          label: "Acknowledged",
+          count: @acknowledged_count,
+          icon: "bi-check2-circle",
+          color: "#a36a16",
+          background: "#fff3df"
+        },
+        {
+          label: "Unresolved",
+          count: @unresolved_incident_count,
+          icon: "bi-activity",
+          color: "#315b9b",
+          background: "#edf3fc"
+        },
+        {
+          label: "Critical Unresolved",
+          count: @critical_incident_count,
+          icon: "bi-exclamation-octagon",
+          color: "#c34646",
+          background: "#fceced"
+        },
+        {
+          label: "Resolved",
+          count: @resolved_count,
+          icon: "bi-check-circle",
+          color: "#16825d",
+          background: "#e7f5ee"
+        }
+      ]
+    %>
+
+    <% summary_cards.each do |card| %>
+
+      <div class="col-12 col-sm-6 col-lg-4 col-xl-2">
+
+        <div class="card h-100"
+             style="border:1px solid #dce3ed;border-left:4px solid <%= card[:color] %>;border-radius:10px;box-shadow:0 2px 8px rgba(20,35,60,.045);">
+
+          <div class="card-body p-3">
+
+            <div class="d-flex justify-content-between align-items-start gap-2">
+
+              <div>
+                <div class="small text-muted mb-2">
+                  <%= card[:label] %>
+                </div>
+
+                <h2 class="fw-bold mb-0"
+                    style="color:#213550;">
+                  <%= card[:count] %>
+                </h2>
               </div>
-              <div class="progress"
-                   role="progressbar"
-                   aria-label="<%= os %>"
-                   aria-valuenow="<%= percentage %>"
-                   aria-valuemin="0"
-                   aria-valuemax="100">
-                <div class="progress-bar"
-                     style="width: <%= percentage %>%"></div>
+
+              <div style="width:38px;height:38px;flex-shrink:0;border-radius:9px;background:<%= card[:background] %>;color:<%= card[:color] %>;display:flex;align-items:center;justify-content:center;">
+
+                <i class="bi <%= card[:icon] %> fs-5"></i>
+
               </div>
+
             </div>
-          <% end %>
-        </div>
-      </div>
-    </div>
 
-    <div class="col-lg-6">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-header bg-white py-3">
-          <strong>
-            <i class="bi bi-diagram-2 me-2"></i>
-            Infrastructure Classification
-          </strong>
+          </div>
+
         </div>
-        <div class="card-body p-4">
-          <% if @asset_type_breakdown.any? %>
-            <% @asset_type_breakdown.each do |type, count| %>
-              <div class="d-flex justify-content-between align-items-center border-bottom py-2">
-                <span><%= type %></span>
-                <span class="badge bg-primary rounded-pill">
-                  <%= count %>
-                </span>
-              </div>
-            <% end %>
-          <% else %>
-            <p class="text-muted mb-0">No assets registered.</p>
-          <% end %>
-        </div>
+
       </div>
-    </div>
+
+    <% end %>
+
   </div>
 
-  <!-- Synchronization Information -->
-  <div class="alert alert-light border d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-    <div>
-      <i class="bi bi-clock-history me-2"></i>
-      <strong>Latest AD Asset Synchronization:</strong>
-      <% if @last_ad_sync.present? %>
-        <%= l(@last_ad_sync, format: :long) %>
-      <% else %>
-        Not yet synchronized
-      <% end %>
-    </div>
-    <span class="badge bg-secondary">
-      Read-only Active Directory Discovery
-    </span>
-  </div>
+  <%# ======================================================== %>
+  <%# INCIDENT FILTERS                                         %>
+  <%# ======================================================== %>
 
-  <!-- Search -->
-  <div class="card border-0 shadow-sm mb-4">
+  <div class="card mb-4"
+       style="border:1px solid #dce3ed;border-radius:10px;">
+
+    <div class="card-header bg-white py-3">
+
+      <h5 class="mb-0 fw-semibold" style="color:#253955;">
+        <i class="bi bi-funnel me-2"></i>
+        Incident Filters
+      </h5>
+
+    </div>
+
     <div class="card-body p-4">
-      <%= form_with url: infrastructure_assets_path,
+
+      <%= form_with url: infrastructure_incidents_path,
                     method: :get,
                     local: true do %>
+
         <div class="row g-3 align-items-end">
-          <div class="col-lg-5">
-            <label class="form-label">Search Infrastructure</label>
-            <%= text_field_tag :q, @query,
-                class: "form-control",
-                placeholder: "Hostname, DNS, IP address or description" %>
-          </div>
 
-          <div class="col-lg-3">
-            <label class="form-label">Asset Type</label>
-            <%= select_tag :asset_type,
-                options_for_select(
-                  [["All Asset Types", ""]] +
-                  InfrastructureAsset::ASSET_TYPES.map { |type| [type, type] },
-                  @asset_type
-                ),
-                class: "form-select" %>
-          </div>
+          <div class="col-12 col-md-6 col-lg-4">
 
-          <div class="col-lg-2">
-            <label class="form-label">Status</label>
+            <label for="incident_status"
+                   class="form-label fw-semibold">
+              Incident Status
+            </label>
+
             <%= select_tag :status,
-                options_for_select(
-                  [["All Statuses", ""]] +
-                  InfrastructureAsset::STATUSES.map { |status| [status, status] },
-                  @status
-                ),
-                class: "form-select" %>
+                           options_for_select(
+                             [
+                               ["All Incidents", ""],
+                               ["Open", "Open"],
+                               ["Acknowledged", "Acknowledged"],
+                               ["Resolved", "Resolved"]
+                             ],
+                             @status_filter
+                           ),
+                           id: "incident_status",
+                           class: "form-select" %>
+
           </div>
 
-          <div class="col-lg-2">
-            <%= submit_tag "Search", class: "btn btn-primary w-100" %>
+          <div class="col-12 col-md-6 col-lg-4">
+
+            <div class="d-flex flex-wrap gap-2">
+
+              <%= submit_tag "Apply Filter",
+                             class: "btn btn-primary" %>
+
+              <%= link_to "Clear",
+                          infrastructure_incidents_path,
+                          class: "btn btn-outline-secondary" %>
+
+            </div>
+
           </div>
+
         </div>
+
       <% end %>
+
     </div>
+
   </div>
 
-  <!-- Infrastructure Inventory Table -->
-  <div class="card border-0 shadow-sm">
-    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-      <strong>Registered Infrastructure Assets</strong>
-      <span class="badge bg-primary">
-        <%= @total_count %> Assets
-      </span>
+  <%# ======================================================== %>
+  <%# INCIDENT REGISTER                                        %>
+  <%# ======================================================== %>
+
+  <div class="card"
+       style="border:1px solid #dce3ed;border-radius:10px;overflow:hidden;">
+
+    <div class="card-header bg-white py-3">
+
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+
+        <h5 class="mb-0 fw-semibold" style="color:#253955;">
+
+          <i class="bi bi-list-check me-2"></i>
+          Registered Infrastructure Incidents
+
+        </h5>
+
+        <span class="badge bg-primary rounded-pill">
+          <%= @incidents.total_entries %> Records
+        </span>
+
+      </div>
+
     </div>
 
     <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
+
+      <table class="table table-hover align-middle mb-0"
+             style="font-size:13px;">
+
         <thead class="table-light">
+
           <tr>
-            <th>Hostname</th>
-            <th>IP Address</th>
-            <th>Operating System</th>
-            <th>Asset Type</th>
-            <th>Environment</th>
-            <th>Source</th>
-            <th>Lifecycle</th>
-            <th>Health</th>
-            <th>Incidents</th>
-            <th>ICMP Success</th>
-            <th>DNS</th>
-            <th>ICMP</th>
-            <th>Latency</th>
-            <th>Last Checked</th>
-            <th class="text-end">Action</th>
+            <th class="py-3 ps-3">Incident</th>
+            <th class="py-3">Infrastructure Asset</th>
+            <th class="py-3">Type</th>
+            <th class="py-3">Severity</th>
+            <th class="py-3">Status</th>
+            <th class="py-3">Failures</th>
+            <th class="py-3">First Detected</th>
+            <th class="py-3">Last Observed</th>
+            <th class="py-3">Assigned To</th>
+            <th class="py-3">Resolution</th>
+            <th class="py-3 text-end pe-3">Action</th>
           </tr>
+
         </thead>
 
         <tbody>
-          <% @assets.each do |asset| %>
+
+          <% @incidents.each do |incident| %>
+
+            <%
+              severity_class =
+                case incident.severity
+                when "Critical"
+                  "bg-danger"
+                when "High"
+                  "bg-warning text-dark"
+                else
+                  "bg-secondary"
+                end
+
+              status_class =
+                case incident.status
+                when "Open"
+                  "bg-danger"
+                when "Acknowledged"
+                  "bg-warning text-dark"
+                when "Resolved"
+                  "bg-success"
+                else
+                  "bg-secondary"
+                end
+            %>
+
             <tr>
-              <td>
-                <strong><%= asset.hostname %></strong>
-                <div class="small text-muted"><%= asset.fqdn %></div>
-              </td>
-              <td>
-                <%= asset.ip_address.presence ||
-                    asset.resolved_ip_address.presence || "—" %>
-              </td>
-              <td><%= asset.operating_system.presence || "—" %></td>
-              <td><%= asset.asset_type %></td>
-              <td><%= asset.environment %></td>
 
-              <td>
-                <span class="badge bg-<%= asset.source == 'Active Directory' ? 'primary' :'secondary' %>">
-                  <%= asset.source %>
-                </span>
+              <td class="ps-3">
+                <strong style="color:#253955;">
+                  #<%= incident.id %>
+                </strong>
               </td>
 
               <td>
-                <% lifecycle_class =
-                    case asset.status
-                    when "Active" then "bg-success"
-                    when "Maintenance" then "bg-warning text-dark"
-                    else "bg-secondary"
-                    end %>
-                <span class="badge <%= lifecycle_class %>">
-                  <%= asset.status %>
-                </span>
-              </td>
 
-              <% health = @health_by_asset_id[asset.id] %>
-              <% health_color = { "Healthy" => "success", "Warning" => "warning text-dark", "Critical" => "danger", "Unknown" => "secondary", "Not Monitored" => "secondary" }.fetch(health&.status, "secondary") %>
-              <td><span class="badge bg-<%= health_color %>" title="<%= health&.reason %>"><%= health&.status || "Unknown" %></span></td>
-              <td>
-                <% asset_incidents = @unresolved_incidents_by_asset_id.fetch(asset.id, []) %>
-                <% if asset_incidents.any? %>
-                  <% asset_incidents.each do |incident| %>
-                    <% incident_class = incident.status == "Acknowledged" ? "bg-warning text-dark" : "bg-danger" %>
-                    <%= link_to infrastructure_incident_path(incident),
-                                class: "badge #{incident_class} text-decoration-none me-1",
-                                title: "#{incident.incident_type} — #{incident.severity}" do %>
-                      #<%= incident.id %> <%= incident.status %>
-                    <% end %>
+                <% if incident.infrastructure_asset.present? %>
+
+                  <%= link_to(
+                        incident.infrastructure_asset.hostname,
+                        infrastructure_asset_path(
+                          incident.infrastructure_asset
+                        ),
+                        class: "fw-semibold text-decoration-none"
+                      ) %>
+
+                  <% if incident.infrastructure_asset.fqdn.present? %>
+                    <div class="small text-muted">
+                      <%= incident.infrastructure_asset.fqdn %>
+                    </div>
                   <% end %>
+
+                <% else %>
+
+                  <span class="text-muted">
+                    Asset unavailable
+                  </span>
+
+                <% end %>
+
+              </td>
+
+              <td>
+                <%= incident.incident_type %>
+              </td>
+
+              <td>
+                <span class="badge <%= severity_class %>">
+                  <%= incident.severity %>
+                </span>
+              </td>
+
+              <td>
+                <span class="badge <%= status_class %>">
+                  <%= incident.status %>
+                </span>
+              </td>
+
+              <td>
+                <%= incident.consecutive_failures %>
+              </td>
+
+              <td class="small">
+                <% if incident.first_detected_at.present? %>
+                  <%= l(
+                        incident.first_detected_at,
+                        format: :short
+                      ) %>
+                <% else %>
+                  —
+                <% end %>
+              </td>
+
+              <td class="small">
+                <% if incident.last_observed_at.present? %>
+                  <%= l(
+                        incident.last_observed_at,
+                        format: :short
+                      ) %>
+                <% else %>
+                  —
+                <% end %>
+              </td>
+
+              <td>
+
+                <% if incident.assigned_to.present? %>
+
+                  <span class="small">
+                    <%= incident.assigned_to.username %>
+                  </span>
+
+                <% else %>
+
+                  <span class="text-muted small">
+                    Unassigned
+                  </span>
+
+                <% end %>
+
+              </td>
+
+              <td class="small">
+
+                <% if incident.resolution_reason.present? %>
+                  <%= incident.resolution_reason %>
                 <% else %>
                   <span class="text-muted">—</span>
                 <% end %>
+
               </td>
-              <td class="small">
-                <% if @availability_by_asset_id.key?(asset.id) %>
-                  <%= number_with_precision(@availability_by_asset_id[asset.id], precision: 1) %>%
-                <% else %>
-                  —
+
+              <td class="text-end pe-3">
+
+                <%= link_to(
+                      infrastructure_incident_path(incident),
+                      class: "btn btn-outline-primary btn-sm",
+                      title: "View and manage incident"
+                    ) do %>
+
+                  <i class="bi bi-eye me-1"></i>
+                  Manage
+
                 <% end %>
+
               </td>
 
-              <td>
-                <% dns_class =
-                    case asset.dns_status
-                    when "Resolved" then "bg-success"
-                    when "Failed" then "bg-danger"
-                    else "bg-secondary"
-                    end %>
-                <span class="badge <%= dns_class %>">
-                  <%= asset.dns_status.presence || "Not Checked" %>
-                </span>
-              </td>
-
-              <td>
-                <% icmp_class =
-                    case asset.icmp_status
-                    when "Reachable" then "bg-success"
-                    when "Unreachable" then "bg-danger"
-                    else "bg-secondary"
-                    end %>
-                <span class="badge <%= icmp_class %>">
-                  <%= asset.icmp_status.presence || "Not Checked" %>
-                </span>
-              </td>
-
-              <td>
-                <% if asset.icmp_response_ms.present? %>
-                  <%= number_with_precision(asset.icmp_response_ms, precision: 2) %> ms
-                <% else %>
-                  —
-                <% end %>
-              </td>
-
-              <td class="small text-muted">
-                <% if asset.last_connectivity_check_at.present? %>
-                  <%= l(asset.last_connectivity_check_at, format: :short) %>
-                <% else %>
-                  Never
-                <% end %>
-              </td>
-
-              <td class="text-end">
-                <%= link_to "View",
-                    infrastructure_asset_path(asset),
-                    class: "btn btn-outline-primary btn-sm" %>
-              </td>
             </tr>
+
           <% end %>
 
-          <% if @assets.empty? %>
+          <% if @incidents.empty? %>
+
             <tr>
-              <td colspan="15" class="text-center text-muted py-5">
-                No infrastructure assets found.
+              <td colspan="11"
+                  class="text-center py-5">
+
+                <div class="text-muted">
+
+                  <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+
+                  <strong>
+                    No infrastructure incidents found
+                  </strong>
+
+                  <p class="small mt-2 mb-0">
+                    There are no incidents matching the
+                    selected status filter.
+                  </p>
+
+                </div>
+
               </td>
             </tr>
+
           <% end %>
+
         </tbody>
+
       </table>
+
     </div>
 
-    <div class="card-footer bg-white d-flex justify-content-between align-items-center">
-      <span class="small text-muted">
-        Page <%= @page %> of <%= @total_pages %>
-      </span>
+    <%# ====================================================== %>
+    <%# PAGINATION                                             %>
+    <%# ====================================================== %>
 
-      <div class="btn-group">
-        <% if @page > 1 %>
-          <%= link_to "Previous",
-              infrastructure_assets_path(
-                q: @query,
-                asset_type: @asset_type,
-                status: @status,
-                page: @page - 1
-              ),
-              class: "btn btn-outline-secondary btn-sm" %>
-        <% end %>
+    <div class="card-footer bg-white py-3">
 
-        <% if @page < @total_pages %>
-          <%= link_to "Next",
-              infrastructure_assets_path(
-                q: @query,
-                asset_type: @asset_type,
-                status: @status,
-                page: @page + 1
-              ),
-              class: "btn btn-outline-secondary btn-sm" %>
-        <% end %>
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+
+        <span class="small text-muted">
+
+          <% if @incidents.total_entries.positive? %>
+
+            Showing
+            <strong><%= @incidents.offset + 1 %></strong>
+            to
+            <strong>
+              <%= @incidents.offset + @incidents.length %>
+            </strong>
+            of
+            <strong><%= @incidents.total_entries %></strong>
+            incidents
+
+          <% else %>
+
+            No incidents to display
+
+          <% end %>
+
+        </span>
+
+        <div>
+          <%= will_paginate(
+                @incidents,
+                renderer: WillPaginate::ActionView::LinkRenderer,
+                params: {
+                  status: @status_filter
+                }
+              ) %>
+        </div>
+
       </div>
+
     </div>
+
   </div>
 
-  <div class="mt-4">
-    <%= link_to "Back to Corporate Dashboard",
-        root_path,
-        class: "btn btn-outline-secondary" %>
+  <%# ======================================================== %>
+  <%# OPERATIONAL INFORMATION                                  %>
+  <%# ======================================================== %>
+
+  <div class="alert alert-light border mt-4 mb-4">
+
+    <div class="d-flex align-items-start gap-2">
+
+      <i class="bi bi-info-circle text-primary mt-1"></i>
+
+      <div class="small">
+
+        <strong>Operational Guidance</strong>
+
+        <p class="mb-1 mt-2">
+          Infrastructure incidents are generated from repeated
+          unsuccessful connectivity checks.
+          An unsuccessful ICMP check does not necessarily
+          indicate that a server is offline.
+        </p>
+
+        <p class="mb-0">
+          Open and Acknowledged incidents remain unresolved
+          until formally resolved or cleared through the
+          existing incident management workflow.
+        </p>
+
+      </div>
+
+    </div>
+
   </div>
+
+  <%# ======================================================== %>
+  <%# FOOTER                                                   %>
+  <%# ======================================================== %>
+
+  <div class="text-center text-muted small pb-3">
+
+    HERGA Corporate Portal
+    &nbsp; | &nbsp;
+    Infrastructure Incident Management
+    &nbsp; | &nbsp;
+    Administrator Access
+
+  </div>
+
 </div>
