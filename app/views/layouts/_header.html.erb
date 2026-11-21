@@ -1,21 +1,31 @@
 
-<%# ============================================== %>
-<%# HERGA CORPORATE PORTAL - NAVIGATION HEADER     %>
-<%# Bootstrap 5                                    %>
-<%# ============================================== %>
+<%# ============================================================ %>
+<%# HERGA CORPORATE PORTAL                                      %>
+<%# Shared Corporate Navigation - Bootstrap 5                   %>
+<%# ============================================================ %>
 
-<%# Main corporate navigation bar. %>
 <nav class="navbar navbar-expand-lg navbar-dark"
      style="background-color:#243b55;">
 
   <div class="container-fluid">
 
-    <%# Corporate brand and homepage link. %>
-    <%= link_to "HERGA CORPORATE",
-        root_path,
-        class: "navbar-brand fw-bold" %>
+    <%# ======================================================== %>
+    <%# CORPORATE BRAND                                         %>
+    <%# ======================================================== %>
 
-    <%# Mobile navigation toggle button. %>
+    <%= link_to root_path,
+                class: "navbar-brand fw-bold d-flex align-items-center gap-2" do %>
+
+      <i class="bi bi-buildings"></i>
+
+      <span>HERGA CORPORATE</span>
+
+    <% end %>
+
+    <%# ======================================================== %>
+    <%# MOBILE NAVIGATION TOGGLE                                %>
+    <%# ======================================================== %>
+
     <button class="navbar-toggler"
             type="button"
             data-bs-toggle="collapse"
@@ -28,39 +38,217 @@
 
     </button>
 
-    <%# Collapsible navigation menu. %>
+    <%# ======================================================== %>
+    <%# NAVIGATION                                              %>
+    <%# ======================================================== %>
+
     <div class="collapse navbar-collapse"
          id="hergaNavbar">
 
-      <%# Main application navigation links. %>
       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
 
-        <%# Dashboard link. %>
         <li class="nav-item">
 
-          <%= link_to "Dashboard",
-              root_path,
-              class: "nav-link" %>
+          <%= link_to root_path,
+                      class: "nav-link" do %>
+
+            <i class="bi bi-speedometer2 me-1"></i>
+            Dashboard
+
+          <% end %>
 
         </li>
 
-        <%# Corporate application directory link. %>
         <li class="nav-item">
 
-          <%= link_to "Applications",
-              portal_applications_path,
-              class: "nav-link" %>
+          <%= link_to portal_applications_path,
+                      class: "nav-link" do %>
+
+            <i class="bi bi-grid me-1"></i>
+            Applications
+
+          <% end %>
 
         </li>
+
+        <%# Infrastructure links are visible only to authenticated
+            administrators. Controller authorization remains the
+            authoritative access-control mechanism. %>
+
+        <% if user_signed_in? && current_user.admin? %>
+
+          <li class="nav-item dropdown">
+
+            <a class="nav-link dropdown-toggle"
+               href="#"
+               id="infrastructureDropdown"
+               role="button"
+               data-bs-toggle="dropdown"
+               aria-expanded="false">
+
+              <i class="bi bi-hdd-network me-1"></i>
+              Infrastructure
+
+            </a>
+
+            <ul class="dropdown-menu"
+                aria-labelledby="infrastructureDropdown">
+
+              <li>
+
+                <%= link_to infrastructure_monitoring_path,
+                            class: "dropdown-item" do %>
+
+                  <i class="bi bi-activity me-2"></i>
+                  Monitoring Dashboard
+
+                <% end %>
+
+              </li>
+
+              <li>
+
+                <%= link_to infrastructure_assets_path,
+                            class: "dropdown-item" do %>
+
+                  <i class="bi bi-hdd-network me-2"></i>
+                  Asset Inventory
+
+                <% end %>
+
+              </li>
+
+              <li>
+
+                <%= link_to infrastructure_incidents_path,
+                            class: "dropdown-item" do %>
+
+                  <i class="bi bi-exclamation-triangle me-2"></i>
+                  Incident Register
+
+                <% end %>
+
+              </li>
+
+            </ul>
+
+          </li>
+
+        <% end %>
 
       </ul>
 
-      <%# Corporate network identification. %>
-      <span class="navbar-text text-white">
+      <%# ====================================================== %>
+      <%# AUTHENTICATED USER IDENTITY                            %>
+      <%# ====================================================== %>
 
-        HERGA.NET Enterprise Services
+      <% if user_signed_in? %>
 
-      </span>
+        <div class="d-flex flex-wrap align-items-center gap-3">
+
+          <span class="navbar-text text-white-50 small d-none d-xl-inline">
+            HERGA.NET Enterprise Services
+          </span>
+
+          <div class="dropdown">
+
+            <button class="btn btn-outline-light btn-sm dropdown-toggle d-flex align-items-center gap-2"
+                    type="button"
+                    id="hergaUserDropdown"
+                    data-bs-toggle="dropdown"
+                    aria-expanded="false">
+
+              <i class="bi bi-person-circle fs-5"></i>
+
+              <span class="text-start">
+
+                <span class="d-block fw-semibold">
+                  <%= current_user.username.presence ||
+                      "Authenticated User" %>
+                </span>
+
+                <span class="d-block"
+                      style="font-size:10px;opacity:.8;">
+                  HERGA.NET
+                  <% if current_user.admin? %>
+                    | Administrator
+                  <% end %>
+                </span>
+
+              </span>
+
+            </button>
+
+            <ul class="dropdown-menu dropdown-menu-end"
+                aria-labelledby="hergaUserDropdown">
+
+              <li class="dropdown-header">
+
+                <div class="fw-semibold">
+                  <%= current_user.username.presence ||
+                      "Authenticated User" %>
+                </div>
+
+                <div class="small text-muted">
+                  HERGA.NET
+                </div>
+
+              </li>
+
+              <li><hr class="dropdown-divider"></li>
+
+              <li>
+
+                <span class="dropdown-item-text small text-muted">
+
+                  <i class="bi bi-shield-check me-2"></i>
+
+                  <%= current_user.admin? ?
+                      "Portal Administrator" :
+                      "Portal User" %>
+
+                </span>
+
+              </li>
+
+              <li><hr class="dropdown-divider"></li>
+
+              <li>
+
+                <%= button_to destroy_user_session_path,
+                              method: :delete,
+                              class: "dropdown-item text-danger",
+                              form: {
+                                class: "m-0"
+                              } do %>
+
+                  <i class="bi bi-box-arrow-right me-2"></i>
+                  Sign Out
+
+                <% end %>
+
+              </li>
+
+            </ul>
+
+          </div>
+
+        </div>
+
+      <% else %>
+
+        <%# No authenticated user: show sign-in instead of
+            an account dropdown. %>
+
+        <%= link_to new_user_session_path,
+                    class: "btn btn-outline-light btn-sm" do %>
+
+          <i class="bi bi-box-arrow-in-right me-1"></i>
+          Sign In
+
+        <% end %>
+
+      <% end %>
 
     </div>
 
