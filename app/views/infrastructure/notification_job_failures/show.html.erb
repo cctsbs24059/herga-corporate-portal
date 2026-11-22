@@ -1,0 +1,33 @@
+<% provide(:title, 'Notification Job Failure Details') %>
+<div class="container-fluid py-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <h1 class="h3 mb-0">Notification Job Failure #<%= @failure[:id] %></h1>
+    <%= link_to 'Back to Failure History', infrastructure_notification_job_failures_path, class: 'btn btn-outline-primary' %>
+  </div>
+  <div class="alert alert-warning"><i class="bi bi-shield-lock me-2"></i>Read-only investigation. Raw exception details and serialized job arguments are intentionally hidden.</div>
+  <div class="card shadow-sm mb-4">
+    <div class="card-header fw-semibold">Execution Details</div>
+    <div class="card-body">
+      <dl class="row mb-0">
+        <% { 'Job ID' => @failure[:job_id], 'Active Job ID' => @failure[:active_job_id], 'Class' => @failure[:job_class], 'Queue' => @failure[:queue], 'Category' => @failure[:category], 'Created (UTC)' => @failure[:created_at]&.utc, 'Scheduled (UTC)' => @failure[:scheduled_at]&.utc, 'Failed (UTC)' => @failure[:failed_at]&.utc, 'Finished (UTC)' => @failure[:finished_at]&.utc }.each do |label, value| %>
+          <dt class="col-sm-3"><%= label %></dt><dd class="col-sm-9 text-break"><%= value.presence || '—' %></dd>
+        <% end %>
+      </dl>
+    </div>
+  </div>
+  <div class="card shadow-sm mb-4">
+    <div class="card-header fw-semibold">Failure Classification</div>
+    <div class="card-body"><p class="mb-0"><%= @failure[:summary] %></p></div>
+  </div>
+  <% if @notification %>
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold">Associated Notification</div>
+      <div class="card-body">
+        <p>Notification #<%= @notification.id %> — <span class="badge bg-secondary"><%= @notification.status %></span></p>
+        <%= link_to 'View Notification Audit', infrastructure_notification_path(@notification), class: 'btn btn-outline-primary' %>
+      </div>
+    </div>
+  <% elsif @failure[:notification_id] %>
+    <div class="alert alert-secondary">The referenced notification record is no longer available.</div>
+  <% end %>
+</div>

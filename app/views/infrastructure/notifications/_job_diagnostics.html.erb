@@ -1,0 +1,199 @@
+
+<% diagnostics = job_diagnostics %>
+
+<div class="card shadow-sm mb-4">
+
+  <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+
+    <span class="fw-semibold">
+      <i class="bi bi-clipboard2-pulse me-2"></i>
+      Notification Job Diagnostics
+    </span>
+
+    <% badge_class = case diagnostics[:status]
+       when "Healthy" then "bg-success"
+       when "Degraded" then "bg-warning text-dark"
+       else "bg-danger"
+       end %>
+
+    <span class="badge <%= badge_class %>">
+      <%= diagnostics[:status] %>
+    </span>
+
+  </div>
+
+  <div class="card-body">
+
+    <% unless diagnostics[:available] %>
+      <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        <%= diagnostics[:error] %>
+      </div>
+    <% end %>
+
+    <div class="row g-3 mb-4">
+
+      <% [
+        ["Recorded Notification Jobs", :total_jobs, "primary"],
+        ["Waiting", :ready_count, "warning"],
+        ["Running", :running_count, "info"],
+        ["Failed - Last 24 Hours", :recent_failed_count, "danger"]
+      ].each do |label, key, colour| %>
+
+        <div class="col-md-6 col-xl-3">
+          <div class="border rounded p-3 h-100">
+
+            <div class="small text-muted">
+              <%= label %>
+            </div>
+
+            <div class="h3 mt-2 mb-0 text-<%= colour %>">
+              <%= diagnostics[key].nil? ?
+                    "—" :
+                    number_with_delimiter(diagnostics[key]) %>
+            </div>
+
+          </div>
+        </div>
+
+      <% end %>
+
+    </div>
+
+    <h3 class="h6 mb-3">
+      Job Classification
+    </h3>
+
+    <div class="table-responsive mb-4">
+
+      <table class="table table-sm align-middle">
+
+        <thead class="table-light">
+          <tr>
+            <th>Job Class</th>
+            <th class="text-end">Recorded Jobs</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr>
+            <td>
+              <code>NotificationDeliveryJob</code>
+            </td>
+            <td class="text-end">
+              <%= diagnostics[:delivery_jobs] || "—" %>
+            </td>
+          </tr>
+
+          <tr>
+            <td>
+              <code>NotificationReconciliationJob</code>
+            </td>
+            <td class="text-end">
+              <%= diagnostics[:reconciliation_jobs] || "—" %>
+            </td>
+          </tr>
+        </tbody>
+
+      </table>
+
+    </div>
+
+    <div class="d-flex flex-wrap gap-3 mb-4 small">
+
+      <span>
+        <strong>Healthy Workers:</strong>
+        <%= diagnostics[:healthy_workers] || "—" %>
+      </span>
+
+      <span>
+        <strong>Scheduled Jobs:</strong>
+        <%= diagnostics[:scheduled_count] || "—" %>
+      </span>
+
+      <span>
+        <strong>Historical Failures:</strong>
+        <%= diagnostics[:total_failed_count] || "—" %>
+      </span>
+
+    </div>
+
+    <h3 class="h6 mb-3">
+      <i class="bi bi-exclamation-circle me-2"></i>
+      Recent Notification Job Failures
+    </h3>
+
+    <div class="table-responsive">
+
+      <table class="table table-hover table-sm align-middle">
+
+        <thead class="table-light">
+          <tr>
+            <th>Failed At (UTC)</th>
+            <th>Job Class</th>
+            <th>Queue</th>
+            <th>Error Summary</th>
+          </tr>
+        </thead>
+
+        <tbody>
+
+          <% diagnostics[:recent_failures].each do |failure| %>
+
+            <tr>
+
+              <td class="text-nowrap">
+                <%= failure[:failed_at]&.utc&.strftime(
+                      "%d %b %Y %H:%M:%S"
+                    ) %>
+              </td>
+
+              <td>
+                <code>
+                  <%= failure[:job_class] %>
+                </code>
+              </td>
+
+              <td>
+                <%= failure[:queue_name] %>
+              </td>
+
+              <td class="text-break">
+                <%= failure[:error] %>
+              </td>
+
+            </tr>
+
+          <% end %>
+
+          <% if diagnostics[:recent_failures].empty? %>
+
+            <tr>
+              <td colspan="4" class="text-center text-muted py-3">
+                <%= diagnostics[:available] ?
+                      "No notification job failures recorded in the last 24 hours." :
+                      "Failure history is currently unavailable." %>
+              </td>
+            </tr>
+
+          <% end %>
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+    <div class="alert alert-light border small mt-3 mb-0">
+      <i class="bi bi-info-circle me-2"></i>
+
+      Diagnostics include only notification delivery and
+      reconciliation job classes. Other infrastructure
+      background jobs are excluded.
+
+      This panel is read-only and does not retry or
+      resubmit notifications.
+    </div>
+
+  </div>
+</div>

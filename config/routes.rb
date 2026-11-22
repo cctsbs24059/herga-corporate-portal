@@ -19,6 +19,7 @@ Rails.application.routes.draw do
              }
 
   devise_scope :user do
+
     get "users/sign_in",
         to: "users/sessions#new",
         as: :new_user_session
@@ -30,6 +31,7 @@ Rails.application.routes.draw do
     delete "users/sign_out",
            to: "users/sessions#destroy",
            as: :destroy_user_session
+
   end
 
   # ==========================================================
@@ -68,14 +70,21 @@ Rails.application.routes.draw do
   resources :infrastructure_assets do
 
     collection do
+
       post :sync_active_directory
+
       post :check_all_connectivity
+
     end
 
     member do
+
       get :history
+
       patch :retire
+
       post :check_connectivity
+
     end
 
   end
@@ -88,9 +97,13 @@ Rails.application.routes.draw do
             only: [:index, :show] do
 
     member do
+
       patch :acknowledge
+
       patch :assign
+
       patch :resolve
+
     end
 
   end
@@ -128,7 +141,9 @@ Rails.application.routes.draw do
               only: [:index, :show] do
 
       member do
+
         patch :acknowledge
+
       end
 
     end
@@ -160,16 +175,113 @@ Rails.application.routes.draw do
         to: "executive_dashboard#index",
         as: :executive_dashboard
 
+    # ========================================================
+    # NOTIFICATION MANAGEMENT
+    # ========================================================
+    #
+    # IMPORTANT ROUTING RULE:
+    #
+    # All static notification routes must be declared
+    # before the dynamic notifications resource.
+    #
+    # This prevents Rails interpreting:
+    #
+    #   /notifications/reports
+    #   /notifications/analytics
+    #   /notifications/job_failures
+    #
+    # as notification record IDs.
+    #
+    # ========================================================
+
+    # --------------------------------------------------------
+    # Phase 2D.8.4.3.4
+    # Advanced Notification Failure Investigation
+    #
+    # Administrator-only access enforced by controller
+    # Read-only failure history and investigation details
+    # --------------------------------------------------------
+
+    get "notifications/job_failures",
+        to: "notification_job_failures#index",
+        as: :notification_job_failures
+
+    get "notifications/job_failures/:id",
+        to: "notification_job_failures#show",
+        as: :notification_job_failure,
+        constraints: { id: /\d+/ }
+
+    # --------------------------------------------------------
+    # Phase 2D.8.4.3.5
+    # Notification Operational Analytics & Trends
+    #
+    # Administrator-only access enforced by controller
+    # Read-only analytics and reporting dashboard
+    # --------------------------------------------------------
+
+    get "notifications/analytics",
+        to: "notification_analytics#index",
+        as: :notification_analytics
+
+    # --------------------------------------------------------
+    # Phase 2D.8.4.3.6
+    # Notification Reporting & CSV Export
+    #
+    # Administrator-only access enforced by controller
+    # Read-only reporting and CSV downloads
+    #
+    # Supported report types:
+    #
+    #   history   - Notification history
+    #   attempts  - Delivery attempt audit
+    #   analytics - Notification analytics summary
+    #
+    # Reporting periods:
+    #
+    #   24h
+    #   7d
+    #   30d
+    #   90d
+    #
+    # Example:
+    #
+    # /infrastructure/notifications/reports
+    #
+    # CSV export:
+    #
+    # /infrastructure/notifications/reports.csv?type=history
+    #
+    # --------------------------------------------------------
+
+    get "notifications/reports",
+        to: "notification_reports#index",
+        as: :notification_reports
+
     # --------------------------------------------------------
     # Phase 2D.8.2.13
     # Infrastructure Notifications & Escalation
     #
     # Phase 2D.8.3.2
     # Notification Centre & Delivery Audit Trail
+    #
+    # Phase 2D.8.4.3.3
+    # Notification Processing Diagnostics
+    #
+    # SECURITY HARDENING:
+    #
+    # Restrict notification IDs to numeric values.
+    #
+    # Prevent malformed URLs such as:
+    #
+    #   /notifications/reports**
+    #
+    # from reaching NotificationsController#show.
+    #
     # --------------------------------------------------------
 
     resources :notifications,
-              only: [:index, :show]
+              only: [:index, :show],
+              constraints: { id: /\d+/ }
 
   end
 

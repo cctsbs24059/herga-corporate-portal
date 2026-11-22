@@ -1,0 +1,56 @@
+<% provide(:title, 'Notification Job Failures') %>
+<div class="container-fluid py-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <div>
+      <h1 class="h3 mb-1"><i class="bi bi-bug me-2"></i>Notification Failure Investigation</h1>
+      <p class="text-muted mb-0">Read-only Solid Queue failures for notification delivery and reconciliation jobs.</p>
+    </div>
+    <%= link_to 'Back to Notification Centre', infrastructure_notifications_path, class: 'btn btn-outline-primary' %>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <%= form_with url: infrastructure_notification_job_failures_path, method: :get, local: true, class: 'row g-3 align-items-end' do %>
+        <div class="col-md-5">
+          <%= label_tag :job_class, 'Job class', class: 'form-label' %>
+          <%= select_tag :job_class, options_for_select([['All notification jobs', ''], ['NotificationDeliveryJob', 'Infrastructure::NotificationDeliveryJob'], ['NotificationReconciliationJob', 'Infrastructure::NotificationReconciliationJob']], @job_class), class: 'form-select' %>
+        </div>
+        <div class="col-md-4">
+          <%= label_tag :period, 'Period', class: 'form-label' %>
+          <%= select_tag :period, options_for_select([['All retained failures', ''], ['Last 24 hours', '24h'], ['Last 7 days', '7d']], @period), class: 'form-select' %>
+        </div>
+        <div class="col-md-3"><%= submit_tag 'Apply Filters', class: 'btn btn-primary w-100' %></div>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <strong>Failure History</strong><span class="badge bg-secondary"><%= @total %> failures</span>
+    </div>
+    <div class="table-responsive">
+      <table id="notification-job-failures-table" class="table table-hover align-middle mb-0">
+        <thead class="table-light"><tr><th>Failure ID</th><th>Failed (UTC)</th><th>Job</th><th>Category</th><th>Investigation</th></tr></thead>
+        <tbody>
+          <% @failures.each do |failure| %>
+            <tr>
+              <td><%= failure[:id] %></td>
+              <td class="text-nowrap"><%= failure[:failed_at]&.utc&.strftime('%d %b %Y %H:%M:%S') %></td>
+              <td><code><%= failure[:job_class].to_s.demodulize %></code></td>
+              <td><span class="badge bg-secondary"><%= failure[:category] %></span></td>
+              <td><%= link_to 'View details', infrastructure_notification_job_failure_path(failure[:id]), class: 'btn btn-sm btn-outline-primary' %></td>
+            </tr>
+          <% end %>
+          <% if @failures.empty? %><tr><td colspan="5" class="text-center text-muted py-4">No matching failed notification jobs.</td></tr><% end %>
+        </tbody>
+      </table>
+    </div>
+    <div class="card-footer d-flex justify-content-between align-items-center">
+      <span class="small text-muted">Page <%= @page %> of <%= @total_pages %></span>
+      <div class="d-flex gap-2">
+        <% if @page > 1 %><%= link_to 'Previous', infrastructure_notification_job_failures_path(job_class: @job_class, period: @period, page: @page - 1), class: 'btn btn-sm btn-outline-secondary' %><% end %>
+        <% if @page < @total_pages %><%= link_to 'Next', infrastructure_notification_job_failures_path(job_class: @job_class, period: @period, page: @page + 1), class: 'btn btn-sm btn-outline-primary' %><% end %>
+      </div>
+    </div>
+  </div>
+</div>

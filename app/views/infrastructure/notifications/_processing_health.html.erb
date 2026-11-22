@@ -1,0 +1,183 @@
+
+<%# HERGA Notification Processing Health %>
+
+<% health = queue_health %>
+
+<div class="card shadow-sm mb-4">
+
+  <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <span class="fw-semibold">
+      <i class="bi bi-cpu me-2"></i>
+      Notification Processing & Queue Health
+    </span>
+
+    <% if !health[:available] %>
+      <span class="badge bg-danger">Unavailable</span>
+    <% elsif health[:overall_status] == "Healthy" %>
+      <span class="badge bg-success">Healthy</span>
+    <% elsif health[:overall_status] == "Degraded" %>
+      <span class="badge bg-warning text-dark">Degraded</span>
+    <% else %>
+      <span class="badge bg-danger">
+        <%= health[:overall_status] %>
+      </span>
+    <% end %>
+  </div>
+
+  <div class="card-body">
+
+    <% unless health[:available] %>
+      <div class="alert alert-danger mb-3">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        <%= health[:error] %>
+      </div>
+    <% end %>
+
+    <div class="row g-3 mb-4">
+
+      <div class="col-md-6 col-xl-3">
+        <div class="border rounded p-3 h-100">
+          <div class="small text-muted">Worker Health</div>
+
+          <div class="h4 mt-2">
+            <% if health[:available] %>
+              <%= health[:healthy_worker_count] %>
+              /
+              <%= health[:worker_count] %>
+            <% else %>
+              —
+            <% end %>
+          </div>
+
+          <span class="badge <%= health[:worker_healthy] ? 'bg-success' : 'bg-danger' %>">
+            <%= health[:worker_healthy] ? "Healthy" : "Unavailable" %>
+          </span>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-3">
+        <div class="border rounded p-3 h-100">
+          <div class="small text-muted">Waiting Jobs</div>
+
+          <div class="h4 mt-2">
+            <%= health[:pending_jobs].nil? ?
+                  "—" :
+                  number_with_delimiter(health[:pending_jobs]) %>
+          </div>
+
+          <span class="small text-muted">
+            All application queues
+          </span>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-3">
+        <div class="border rounded p-3 h-100">
+          <div class="small text-muted">Running Jobs</div>
+
+          <div class="h4 mt-2">
+            <%= health[:running_jobs].nil? ?
+                  "—" :
+                  number_with_delimiter(health[:running_jobs]) %>
+          </div>
+
+          <span class="small text-muted">
+            Currently claimed executions
+          </span>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-3">
+        <div class="border rounded p-3 h-100">
+          <div class="small text-muted">
+            Failed Jobs — Recent
+          </div>
+
+          <div class="h4 mt-2">
+            <%= health[:recent_failed_jobs].nil? ?
+                  "—" :
+                  number_with_delimiter(health[:recent_failed_jobs]) %>
+          </div>
+
+          <span class="small text-muted">
+            Last <%= health[:recent_failure_hours] || 24 %> hours
+          </span>
+        </div>
+      </div>
+
+    </div>
+
+    <h3 class="h6 mb-3">
+      <i class="bi bi-arrow-repeat me-2"></i>
+      Notification Reconciliation
+    </h3>
+
+    <div class="row g-3">
+
+      <div class="col-md-4">
+        <div class="small text-muted">Recurring Task</div>
+
+        <% if health[:reconciliation_registered] %>
+          <span class="badge bg-success">Registered</span>
+        <% elsif health[:available] %>
+          <span class="badge bg-warning text-dark">
+            Not Registered
+          </span>
+        <% else %>
+          <span class="badge bg-secondary">Unknown</span>
+        <% end %>
+      </div>
+
+      <div class="col-md-4">
+        <div class="small text-muted">Schedule</div>
+
+        <strong>
+          <%= health[:reconciliation_schedule] || "Unavailable" %>
+        </strong>
+      </div>
+
+      <div class="col-md-4">
+        <div class="small text-muted">Last Enqueued</div>
+
+        <strong>
+          <%= health[:reconciliation_last_enqueued_at]&.utc&.strftime(
+                "%d %b %Y %H:%M:%S UTC"
+              ) || "Not recorded" %>
+        </strong>
+      </div>
+
+    </div>
+
+    <% if health[:available] %>
+      <hr>
+
+      <div class="d-flex flex-wrap justify-content-between gap-2 small text-muted">
+        <span>
+          Historical failed executions:
+          <strong><%= health[:failed_jobs] %></strong>
+        </span>
+
+        <span>
+          Scheduled jobs:
+          <strong><%= health[:scheduled_jobs] %></strong>
+        </span>
+
+        <span>
+          Checked:
+          <%= health[:checked_at]&.utc&.strftime(
+                "%d %b %Y %H:%M:%S UTC"
+              ) %>
+        </span>
+      </div>
+    <% end %>
+
+    <div class="alert alert-light border small mt-3 mb-0">
+      <i class="bi bi-info-circle me-2"></i>
+      Queue metrics cover all HERGA background jobs.
+      A healthy queue does not guarantee successful email delivery.
+      Microsoft Graph acceptance and notification audit outcomes
+      are tracked separately below.
+    </div>
+
+  </div>
+</div>
