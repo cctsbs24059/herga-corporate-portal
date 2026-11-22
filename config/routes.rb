@@ -190,6 +190,7 @@ Rails.application.routes.draw do
     #   /notifications/analytics
     #   /notifications/reports
     #   /notifications/operations
+    #   /notifications/retention
     #
     # Dynamic routes:
     #
@@ -265,6 +266,9 @@ Rails.application.routes.draw do
     # Phase 2D.8.4.3.7
     # Notification Operations Dashboard
     #
+    # Phase 2D.8.4.3.8
+    # Notification Operational Alerting & Health Indicators
+    #
     # Administrator-only access enforced by controller.
     #
     # Consolidated read-only operational dashboard:
@@ -274,6 +278,7 @@ Rails.application.routes.draw do
     #   - Unknown submission outcomes
     #   - Notification job diagnostics
     #   - Solid Queue health
+    #   - Operational health indicators
     #   - Reporting period selection
     #   - Navigation to notification modules
     #
@@ -290,6 +295,33 @@ Rails.application.routes.draw do
         as: :notification_operations
 
     # --------------------------------------------------------
+    # Phase 2D.8.4.3.9
+    # Notification Retention & Audit Data Lifecycle
+    #
+    # Administrator-only access enforced by controller.
+    #
+    # Read-only retention assessment:
+    #
+    #   - Notification retention eligibility
+    #   - Configurable retention thresholds
+    #   - Protected notification records
+    #   - Delivery attempt audit assessment
+    #   - Retention reporting
+    #
+    # Dashboard:
+    #
+    # /infrastructure/notifications/retention
+    #
+    # No automatic deletion.
+    # No archival operations.
+    # No notification status modifications.
+    # --------------------------------------------------------
+
+    get "notifications/retention",
+        to: "notification_retention#index",
+        as: :notification_retention
+
+    # --------------------------------------------------------
     # Phase 2D.8.2.13
     # Infrastructure Notifications & Escalation
     #
@@ -303,10 +335,11 @@ Rails.application.routes.draw do
     #
     # Restrict notification IDs to numeric values.
     #
-    # Prevent malformed paths such as:
+    # Prevent static paths such as:
     #
-    #   /notifications/reports**
-    #   /notifications/operations**
+    #   /notifications/reports
+    #   /notifications/operations
+    #   /notifications/retention
     #
     # from being interpreted as notification IDs.
     #
@@ -341,4 +374,3 @@ Rails.application.routes.draw do
       as: :rails_health_check
 
 end
-

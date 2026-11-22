@@ -1,0 +1,39 @@
+<section id="notification-operations-health" class="card shadow-sm mb-4" aria-labelledby="notification-health-title">
+  <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <h2 class="h5 mb-0" id="notification-health-title">Notification service health</h2>
+    <% health_colour = { 'Healthy' => 'success', 'Degraded' => 'warning', 'Unavailable' => 'danger', 'Disabled' => 'secondary' }.fetch(health_assessment[:status], 'secondary') %>
+    <span class="badge bg-<%= health_colour %> <%= 'text-dark' if health_colour == 'warning' %>"><%= health_assessment[:status] %></span>
+  </div>
+  <div class="card-body">
+    <% if health_assessment[:status] == 'Disabled' %>
+      <p class="mb-0 text-muted">Notification processing is disabled by configuration. Operational health is not assessed while disabled.</p>
+    <% else %>
+      <p class="small text-muted">Age threshold: <%= health_assessment[:stale_minutes] %> minutes. Counts represent current notification state across all records, independent of the selected analytics reporting period.</p>
+      <div class="row g-3">
+        <% health_assessment[:indicators].each do |indicator| %>
+          <% indicator_colour = { 'Healthy' => 'success', 'Degraded' => 'warning', 'Unavailable' => 'danger' }.fetch(indicator[:status], 'secondary') %>
+          <div class="col-md-6 col-xl-4">
+            <div class="border rounded p-3 h-100">
+              <div class="d-flex justify-content-between gap-2 align-items-start mb-2">
+                <strong><%= indicator[:label] %></strong>
+                <span class="badge bg-<%= indicator_colour %> <%= 'text-dark' if indicator_colour == 'warning' %>"><%= indicator[:status] %></span>
+              </div>
+              <% unless indicator[:count].nil? %><div class="h4 mb-2"><%= number_with_delimiter(indicator[:count]) %></div><% end %>
+              <p class="small text-muted mb-2"><%= indicator[:message] %></p>
+              <% case indicator[:key] %>
+              <% when 'unknown' %>
+                <%= link_to 'Investigate unknown outcomes', infrastructure_notifications_path(attention: 'unknown'), class: 'small' %>
+              <% when 'stale_sending' %>
+                <%= link_to 'Inspect stale Sending', infrastructure_notifications_path(attention: 'stale_sending'), class: 'small' %>
+              <% when 'old_pending' %>
+                <%= link_to 'Inspect old Pending', infrastructure_notifications_path(attention: 'old_pending'), class: 'small' %>
+              <% when 'failed_jobs' %>
+                <%= link_to 'Investigate failed jobs', infrastructure_notification_job_failures_path, class: 'small' %>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+</section>

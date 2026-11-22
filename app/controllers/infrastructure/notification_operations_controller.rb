@@ -13,6 +13,11 @@ module Infrastructure
       @job_diagnostics = Infrastructure::NotificationJobDiagnostics.new.call
       @notification_enabled = Infrastructure::NotificationSettings.enabled?
       @notification_activation_time = Infrastructure::NotificationSettings.activation_time
+      @health_assessment = Infrastructure::NotificationHealthAssessment.new(
+        queue_health: @queue_health,
+        job_diagnostics: @job_diagnostics,
+        enabled: @notification_enabled
+      ).call
     end
   end
 end
