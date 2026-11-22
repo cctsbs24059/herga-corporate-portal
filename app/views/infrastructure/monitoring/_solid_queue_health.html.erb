@@ -1,0 +1,80 @@
+<% health = @solid_queue_health %>
+<section class="card shadow-sm my-4" aria-labelledby="queue-health-heading">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h2 class="h5 mb-0" id="queue-health-heading">Background Job Health</h2>
+    <% status_class = { "Healthy" => "bg-success", "Degraded" => "bg-warning text-dark", "Unavailable" => "bg-danger" }.fetch(health[:status], "bg-secondary") %>
+    <span class="badge <%= status_class %>"><%= health[:status] %></span>
+  </div>
+  <div class="card-body">
+    <p class="small text-muted">Checked <%= l(health[:checked_at], format: :long) %>. Operational status considers current scheduler/worker heartbeats, assessment freshness, recurring task registration, and failures within the last <%= health[:recent_failure_hours] %> hours. Historical failures are retained for audit.</p>
+    <div class="row g-3 mb-3">
+      <% { "Ready" => health[:pending_count], "Claimed" => health[:running_count], "Future scheduled" => health[:scheduled_count], "Recent failures" => health[:recent_failed_count] }.each do |label, count| %>
+        <div class="col-6 col-lg-3">
+          <div class="border rounded p-3 h-100">
+            <div class="text-muted small"><%= label %></div>
+            <div class="fs-4 fw-semibold"><%= count %></div>
+          </div>
+        </div>
+      <% end %>
+    </div>
+    <p class="small text-muted mb-3">
+      <strong>Historical failed executions:</strong> <%= health[:historical_failed_count] %>
+      &middot; <strong>Total retained failed executions:</strong> <%= health[:failed_count] %>
+    </p>
+    <p><strong>Latest assessment period end:</strong>
+      <%= health[:latest_assessment_period_end] ? l(health[:latest_assessment_period_end], format: :long) : "None recorded" %>
+      <% if health[:assessment_stale] %><span class="badge bg-warning text-dark">Stale or missing</span><% end %>
+    </p>
+    <h3 class="h6">Solid Queue Processes</h3>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead><tr><th>Process</th><th>Name</th><th>Heartbeat</th><th>Health</th></tr></thead>
+        <tbody>
+          <% health[:processes].each do |process| %>
+            <tr>
+              <td><%= process[:kind] %></td>
+              <td><%= process[:name] %></td>
+              <td><%= process[:last_heartbeat_at] ? l(process[:last_heartbeat_at], format: :long) : "Never" %></td>
+              <td><span class="badge <%= process[:healthy] ? 'bg-success' : 'bg-danger' %>"><%= process[:healthy] ? 'Recent' : 'Stale' %></span></td>
+            </tr>
+          <% end %>
+          <% if health[:processes].empty? %><tr><td colspan="4" class="text-muted">No Solid Queue processes registered.</td></tr><% end %>
+        </tbody>
+      </table>
+    </div>
+    <h3 class="h6 mt-3">Recurring Tasks</h3>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead><tr><th>Task</th><th>Schedule</th><th>Last enqueued</th></tr></thead>
+        <tbody>
+          <% health[:recurring_tasks].each do |task| %>
+            <tr>
+              <td><%= task[:key] %></td>
+              <td><%= task[:schedule] %></td>
+              <td><%= task[:last_enqueued_at] ? l(task[:last_enqueued_at], format: :long) : 'Not recorded' %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <% if health[:recent_failures].any? %>
+      <h3 class="h6 mt-3">Failures Within the Last <%= health[:recent_failure_hours] %> Hours</h3>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead><tr><th>Job</th><th>Failed at</th><th>Error</th></tr></thead>
+          <tbody>
+            <% health[:recent_failures].each do |failure| %>
+              <tr>
+                <td><%= failure[:job_class] %></td>
+                <td><%= l(failure[:failed_at], format: :long) %></td>
+                <td class="text-break"><%= failure[:error] %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% else %>
+      <p class="text-muted small mb-0">No failed executions within the current monitoring window.</p>
+    <% end %>
+  </div>
+</section>

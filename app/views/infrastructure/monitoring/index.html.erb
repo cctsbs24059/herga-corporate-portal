@@ -1,4 +1,3 @@
-
 <% provide(:title, "Infrastructure Monitoring") %>
 
 <%# ============================================================
@@ -538,6 +537,117 @@
 
   </div>
 
+  <%# ==================== AVAILABILITY ALERTS ==================== %>
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
+      <div><h2 class="h5 mb-1">Availability Alert Management</h2>
+        <div class="small text-muted">Persistent alerts from completed assessments</div></div>
+      <%= link_to "Open Alert Register", infrastructure_availability_alerts_path, class: "btn btn-outline-primary btn-sm" %>
+    </div>
+    <div class="card-body">
+      <div class="d-flex flex-wrap gap-2 mb-3">
+        <span class="badge bg-danger">Active: <%= @availability_active_alert_count %></span>
+        <span class="badge bg-warning text-dark">Acknowledged: <%= @availability_acknowledged_alert_count %></span>
+      </div>
+      <% if @availability_recent_alerts.any? %>
+        <div class="table-responsive"><table class="table table-sm align-middle">
+          <thead><tr><th>Asset</th><th>Status</th><th>Availability</th><th>Last observed</th><th></th></tr></thead>
+          <tbody><% @availability_recent_alerts.each do |alert| %>
+            <tr><td><%= alert.infrastructure_asset.hostname %></td>
+              <td><%= alert.status %></td>
+              <td><%= number_with_precision(alert.last_availability_percentage, precision: 2) %>%</td>
+              <td><%= l(alert.last_observed_at, format: :long) %></td>
+              <td><%= link_to "View", infrastructure_availability_alert_path(alert), class: "btn btn-outline-primary btn-sm" %></td></tr>
+          <% end %></tbody>
+        </table></div>
+      <% else %>
+        <p class="text-muted mb-0">No unresolved availability alerts. Alerts are created by the scheduled assessment job or manual reconciliation.</p>
+      <% end %>
+    </div>
+  </div>
+
+  <%# ==================== AVAILABILITY ASSESSMENTS ==================== %>
+
+  <div class="card border-0 shadow-sm mb-4" style="border-radius:10px;">
+    <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
+      <div>
+        <h2 class="h5 mb-1">Infrastructure Availability Assessments</h2>
+        <div class="small text-muted">Latest recorded assessment window · ICMP reachability, not contractual uptime</div>
+      </div>
+      <%= link_to "Full Availability Report", infrastructure_availability_path, class: "btn btn-outline-primary btn-sm" %>
+    </div>
+    <div class="card-body">
+      <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+        <span class="badge <%= @scheduled_availability_enabled ? 'bg-success' : 'bg-secondary' %>">
+          Scheduled assessments: <%= @scheduled_availability_enabled ? 'Enabled' : 'Disabled' %>
+        </span>
+        <span class="small text-muted">Configured cadence: <%= @availability_schedule_interval %>; worker health not verified</span>
+      </div>
+
+      <% if @availability_latest_period_end.present? %>
+        <p class="text-muted small mb-3">
+          Latest period:
+          <strong><%= @availability_period_start ? l(@availability_period_start, format: :long) : 'Unknown start' %></strong>
+          to <strong><%= l(@availability_latest_period_end, format: :long) %></strong>
+          <% if @availability_threshold.present? %>
+            · Threshold: <strong><%= number_with_precision(@availability_threshold, precision: 1) %>%</strong>
+          <% end %>
+        </p>
+        <div class="row g-3 mb-4">
+          <% [
+            ['Assessed assets', @availability_assessed_count, 'primary'],
+            ['Meeting threshold', @availability_meeting_count, 'success'],
+            ['Below threshold', @availability_breach_count, 'danger'],
+            ['Insufficient data', @availability_insufficient_count, 'warning']
+          ].each do |label, value, colour| %>
+            <div class="col-6 col-xl-3">
+              <div class="border rounded-3 p-3 h-100">
+                <div class="text-muted small"><%= label %></div>
+                <div class="fs-2 fw-bold text-<%= colour %>"><%= value %></div>
+              </div>
+            </div>
+          <% end %>
+        </div>
+
+        <h3 class="h6 mb-3">Assets Below Availability Threshold</h3>
+        <% if @availability_breaches.any? %>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Asset</th><th>Environment</th><th>Availability</th>
+                  <th>Threshold</th><th>Checks</th><th>History</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% @availability_breaches.each do |assessment| %>
+                  <% asset = assessment.infrastructure_asset %>
+                  <tr>
+                    <td><%= link_to asset.hostname, infrastructure_asset_path(asset) %></td>
+                    <td><%= asset.environment.presence || 'Unspecified' %></td>
+                    <td><span class="badge bg-danger"><%= number_with_precision(assessment.availability_percentage, precision: 1) %>%</span></td>
+                    <td><%= number_with_precision(assessment.threshold_percentage, precision: 1) %>%</td>
+                    <td><%= assessment.total_checks %></td>
+                    <td><%= link_to 'View history', history_infrastructure_asset_path(asset), class: 'btn btn-outline-secondary btn-sm' %></td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+          <% if @availability_breach_count > @availability_breaches.length %>
+            <p class="small text-muted mb-0">Showing the first <%= @availability_breaches.length %> of <%= @availability_breach_count %> threshold breaches.</p>
+          <% end %>
+        <% else %>
+          <p class="text-muted mb-0">No below-threshold assets were recorded in the latest assessment window.</p>
+        <% end %>
+      <% else %>
+        <div class="alert alert-info mb-0">
+          No availability assessments have been recorded yet. Run the availability assessor to populate this dashboard.
+        </div>
+      <% end %>
+    </div>
+  </div>
+
   <%# ==================== MONITORING HISTORY ==================== %>
 
   <div style="<%= card_style %>height:auto;margin-bottom:24px;">
@@ -805,6 +915,9 @@
     </div>
 
   </div>
+
+  <%# ==================== PHASE 2D.8.2.9 — SOLID QUEUE HEALTH ==================== %>
+  <%= render "solid_queue_health" %>
 
   <%# ==================== FOOTER ==================== %>
 

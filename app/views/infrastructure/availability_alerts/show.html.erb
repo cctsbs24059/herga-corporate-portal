@@ -1,0 +1,27 @@
+<% provide(:title, "Availability Alert") %>
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Availability Alert #<%= @alert.id %></h1>
+    <%= link_to "All Alerts", infrastructure_availability_alerts_path, class: "btn btn-outline-secondary" %>
+  </div>
+  <div class="card border-0 shadow-sm"><div class="card-body">
+    <dl class="row mb-0">
+      <dt class="col-sm-4">Asset</dt><dd class="col-sm-8"><%= link_to @alert.infrastructure_asset.hostname, infrastructure_asset_path(@alert.infrastructure_asset) %></dd>
+      <dt class="col-sm-4">Status</dt><dd class="col-sm-8"><%= @alert.status %></dd>
+      <dt class="col-sm-4">Availability</dt><dd class="col-sm-8"><%= @alert.last_availability_percentage.nil? ? 'N/A' : "#{number_with_precision(@alert.last_availability_percentage, precision: 2)}%" %></dd>
+      <dt class="col-sm-4">Threshold</dt><dd class="col-sm-8"><%= number_with_precision(@alert.threshold_percentage, precision: 2) %>%</dd>
+      <dt class="col-sm-4">First detected</dt><dd class="col-sm-8"><%= l(@alert.first_detected_at, format: :long) %></dd>
+      <dt class="col-sm-4">Last observed</dt><dd class="col-sm-8"><%= l(@alert.last_observed_at, format: :long) %></dd>
+      <dt class="col-sm-4">Assessment period end</dt><dd class="col-sm-8"><%= l(@alert.assessment_period_end, format: :long) %></dd>
+      <dt class="col-sm-4">Acknowledged by</dt><dd class="col-sm-8"><%= @alert.acknowledged_by&.try(:username) || '—' %></dd>
+      <dt class="col-sm-4">Acknowledged at</dt><dd class="col-sm-8"><%= @alert.acknowledged_at ? l(@alert.acknowledged_at, format: :long) : '—' %></dd>
+      <dt class="col-sm-4">Cleared at</dt><dd class="col-sm-8"><%= @alert.cleared_at ? l(@alert.cleared_at, format: :long) : '—' %></dd>
+    </dl>
+    <div class="d-flex gap-2 mt-3">
+      <%= link_to "Asset History", history_infrastructure_asset_path(@alert.infrastructure_asset), class: "btn btn-outline-primary" %>
+      <% if @alert.status == "Active" %>
+        <%= button_to "Acknowledge Alert", acknowledge_infrastructure_availability_alert_path(@alert), method: :patch, class: "btn btn-warning" %>
+      <% end %>
+    </div>
+  </div></div>
+</div>

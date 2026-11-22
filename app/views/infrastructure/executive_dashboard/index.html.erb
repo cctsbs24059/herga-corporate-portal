@@ -1,0 +1,107 @@
+<% provide(:title, "Infrastructure Executive Dashboard") %>
+<% report = @overview.analytics %>
+<% summary = report.summary %>
+<% pct = ->(value) { value.nil? ? "No data" : "#{number_with_precision(value, precision: 2)}%" } %>
+
+<div class="container-fluid py-4">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+      <h1 class="h3 mb-1">Infrastructure Executive Dashboard</h1>
+      <p class="text-muted mb-0">HERGA estate health, monitoring reliability and operational risk.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <%= link_to "Monitoring", infrastructure_monitoring_path, class: "btn btn-outline-secondary" %>
+      <%= link_to "Analytics", infrastructure_analytics_path(period: report.period), class: "btn btn-outline-primary" %>
+      <%= link_to "Audit & Reporting", infrastructure_operational_reports_path(period: report.period), class: "btn btn-outline-primary" %>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <%= form_with url: infrastructure_executive_dashboard_path, method: :get, local: true, class: "row g-3 align-items-end" do %>
+        <div class="col-sm-5 col-md-3">
+          <%= label_tag :period, "Reporting period", class: "form-label" %>
+          <%= select_tag :period, options_for_select([["Last 7 days", "7"], ["Last 30 days", "30"], ["Last 90 days", "90"]], report.period), class: "form-select" %>
+        </div>
+        <div class="col-sm-auto"><%= submit_tag "Update Dashboard", class: "btn btn-primary" %></div>
+      <% end %>
+      <div class="small text-muted mt-3">Period: <%= report.start_at.utc.strftime("%d %b %Y %H:%M UTC") %> to <%= report.end_at.utc.strftime("%d %b %Y %H:%M UTC") %>. Estate, incident and alert counts reflect current database state.</div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <% [
+      ["Assets in estate", number_with_delimiter(@overview.asset_total), "All recorded asset statuses"],
+      ["Monitoring success", pct.call(summary[:execution_success_percentage]), "#{summary[:completed]} completed / #{summary[:failed]} failed"],
+      ["Connectivity availability", pct.call(summary[:connectivity_availability_percentage]), "#{summary[:reachable_checks]} reachable / #{summary[:unreachable_checks]} unreachable"],
+      ["Threshold breaches", number_with_delimiter(summary[:breaches]), "#{summary[:insufficient]} insufficient-data assessments"],
+      ["Incidents", number_with_delimiter(@overview.incident_total), "All current incident statuses"],
+      ["Availability alerts", number_with_delimiter(@overview.alert_total), "All current alert statuses"],
+      ["Queue failures in period", number_with_delimiter(summary[:historical_queue_failures_in_period]), "Historical records; not necessarily active failures"]
+    ].each do |label, value, detail| %>
+      <div class="col-sm-6 col-lg-4 col-xxl-3">
+        <div class="card shadow-sm h-100"><div class="card-body">
+          <div class="text-muted small"><%= label %></div>
+          <div class="h3 my-2"><%= value %></div>
+          <div class="small text-muted"><%= detail %></div>
+        </div></div>
+      </div>
+    <% end %>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <% [["Asset status", @overview.assets], ["Incident status", @overview.incidents], ["Alert status", @overview.alerts]].each do |heading, counts| %>
+      <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+          <div class="card-header fw-semibold"><%= heading %></div>
+          <div class="card-body">
+            <% if counts.empty? %><p class="text-muted mb-0">No records.</p><% else %>
+              <% counts.sort_by { |status, _| status.to_s }.each do |status, count| %>
+                <div class="d-flex justify-content-between border-bottom py-2">
+                  <span><%= status.presence || "Unspecified" %></span>
+                  <strong><%= number_with_delimiter(count) %></strong>
+                </div>
+              <% end %>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header fw-semibold">Daily operational trend</div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead class="table-light"><tr><th>Date (UTC)</th><th class="text-end">Completed runs</th><th class="text-end">Failed runs</th><th class="text-end">Execution success</th><th class="text-end">Connectivity availability</th><th class="text-end">Breaches</th></tr></thead>
+        <tbody>
+          <% report.chart_rows.reverse_each do |day| %>
+            <tr>
+              <td><%= day[:date].strftime("%d %b %Y") %></td>
+              <td class="text-end"><%= day[:completed] %></td>
+              <td class="text-end"><%= day[:failed] %></td>
+              <td class="text-end"><%= pct.call(day[:execution_success_percentage]) %></td>
+              <td class="text-end"><%= pct.call(day[:connectivity_availability_percentage]) %></td>
+              <td class="text-end"><%= day[:breaches] %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <div class="card-footer small text-muted">Unknown connectivity checks are excluded from the connectivity availability denominator. For visual charts and CSV export, open Analytics & Trends.</div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-header fw-semibold">Operational evidence</div>
+    <div class="card-body">
+      <p class="mb-2">Latest assessment period end: <strong><%= @overview.latest_assessment&.utc&.strftime("%d %b %Y %H:%M UTC") || "No assessments" %></strong></p>
+      <p class="mb-2">Latest monitoring run: <strong><%= @overview.latest_run&.status || "No runs" %></strong></p>
+      <p class="mb-3">Queue health details remain available on the <%= link_to "Monitoring Dashboard", infrastructure_monitoring_path %>.</p>
+      <div class="d-flex flex-wrap gap-2">
+        <%= link_to "View incidents", infrastructure_incidents_path, class: "btn btn-outline-secondary" %>
+        <%= link_to "View availability alerts", infrastructure_availability_alerts_path, class: "btn btn-outline-secondary" %>
+        <%= link_to "View availability report", infrastructure_availability_path, class: "btn btn-outline-secondary" %>
+      </div>
+    </div>
+  </div>
+</div>

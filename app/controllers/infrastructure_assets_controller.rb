@@ -4,7 +4,7 @@ class InfrastructureAssetsController < ApplicationController
   before_action :require_portal_administrator
 
   before_action :set_asset, only: %i[
-    show edit update retire check_connectivity
+    show history edit update retire check_connectivity
   ]
 
   PER_PAGE = 25
@@ -181,6 +181,43 @@ class InfrastructureAssetsController < ApplicationController
       .includes(:assigned_to)
       .recent
       .limit(10)
+  end
+
+  # Phase 2D.8.2.1 - Time-filtered per-asset monitoring history.
+  def history
+    @period_days = [1, 7, 30].include?(params[:period].to_i) ? params[:period].to_i : 7
+    @period_end = Time.current
+    @period_start = @period_end - @period_days.days
+
+    results = InfrastructureConnectivityResult
+      .where(infrastructure_asset_id: @asset.id)
+      .where(checked_at: @period_start..@period_end)
+
+    @total_checks = results.count
+    @reachable_checks = results.where(icmp_status: "Reachable").count
+    @unreachable_checks = results.where(icmp_status: "Unreachable").count
+    @unknown_checks = @total_checks - @reachable_checks - @unreachable_checks
+    @determinate_checks = @reachable_checks + @unreachable_checks
+    @availability_percentage = if @determinate_checks.positive?
+      (100.0 * @reachable_checks / @determinate_checks).round(2)
+    end
+
+    latency_results = results.where(icmp_status: "Reachable").where.not(icmp_response_ms: nil)
+    @average_latency = latency_results.average(:icmp_response_ms)&.to_f
+    @minimum_latency = latency_results.minimum(:icmp_response_ms)
+    @maximum_latency = latency_results.maximum(:icmp_response_ms)
+
+    @chart_results = results.order(checked_at: :desc, id: :desc).limit(24).to_a.reverse
+    @chart_maximum_latency = [
+      @chart_results.filter_map { |result| result.icmp_response_ms if result.icmp_status == "Reachable" }.max.to_f,
+      1.0
+    ].max
+
+    @per_page = 25
+    @total_pages = [(@total_checks.to_f / @per_page).ceil, 1].max
+    @page = [[params[:page].to_i, 1].max, @total_pages].min
+    @connectivity_results = results.order(checked_at: :desc, id: :desc)
+      .limit(@per_page).offset((@page - 1) * @per_page)
   end
 
   def new

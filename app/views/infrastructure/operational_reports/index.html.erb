@@ -1,0 +1,90 @@
+<% provide(:title, "Operational Audit & Reporting") %>
+
+<div class="container-fluid py-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+      <h1 class="h3 mb-1"><i class="bi bi-journal-text me-2" aria-hidden="true"></i>Operational Audit &amp; Reporting</h1>
+      <p class="text-muted mb-0">Read-only infrastructure monitoring history and operational evidence.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <%= link_to "Monitoring Dashboard", infrastructure_monitoring_path, class: "btn btn-outline-secondary" %>
+      <%= link_to "Export CSV", infrastructure_operational_reports_path(request.query_parameters.except("page").merge(format: :csv)), class: "btn btn-primary" %>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <% [
+      ["Monitoring Runs", @report.summary[:runs]],
+      ["Completed Runs", @report.summary[:completed_runs]],
+      ["Failed Runs", @report.summary[:failed_runs]],
+      ["Assessments", @report.summary[:assessments]],
+      ["Threshold Breaches", @report.summary[:breaches]],
+      ["New Alerts", @report.summary[:alerts]],
+      ["Queue Failures", @report.summary[:queue_failures]]
+    ].each do |label, count| %>
+      <div class="col-6 col-md-4 col-xl">
+        <div class="card h-100 shadow-sm"><div class="card-body">
+          <div class="small text-muted"><%= label %></div>
+          <div class="h3 mb-0"><%= number_with_delimiter(count) %></div>
+        </div></div>
+      </div>
+    <% end %>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-body-tertiary fw-semibold">Report Filters</div>
+    <div class="card-body">
+      <%= form_with url: infrastructure_operational_reports_path, method: :get, local: true, class: "row g-3 align-items-end" do %>
+        <div class="col-md-3">
+          <%= label_tag :section, "Report section", class: "form-label" %>
+          <%= select_tag :section, options_for_select([["Monitoring runs", "runs"], ["Availability assessments", "assessments"], ["Availability alerts", "alerts"], ["Solid Queue failures", "failures"]], @report.section), class: "form-select" %>
+        </div>
+        <div class="col-md-3">
+          <%= label_tag :period, "Reporting period", class: "form-label" %>
+          <%= select_tag :period, options_for_select([["Last 24 hours", "1"], ["Last 7 days", "7"], ["Last 30 days", "30"], ["Last 90 days", "90"]], @report.period), class: "form-select" %>
+        </div>
+        <div class="col-md-3">
+          <%= label_tag :status, "Status (where applicable)", class: "form-label" %>
+          <%= select_tag :status, options_for_select([["All statuses", ""], ["Queued", "Queued"], ["Running", "Running"], ["Completed", "Completed"], ["Failed", "Failed"], ["Meets threshold", "MeetsThreshold"], ["Below threshold", "BelowThreshold"], ["Insufficient data", "InsufficientData"], ["Active", "Active"], ["Acknowledged", "Acknowledged"], ["Cleared", "Cleared"]], @report.status), class: "form-select" %>
+        </div>
+        <div class="col-md-3"><%= submit_tag "Apply Filters", class: "btn btn-primary w-100" %></div>
+      <% end %>
+      <p class="small text-muted mt-3 mb-0">Window (UTC): <%= @report.start_at.utc.strftime("%d %b %Y %H:%M") %> – <%= @report.end_at.utc.strftime("%d %b %Y %H:%M") %>. Historical failed jobs are shown as audit records, not automatically as active incidents.</p>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span class="fw-semibold"><%= { "runs" => "Monitoring Execution History", "assessments" => "Availability Assessment History", "alerts" => "Availability Alert History", "failures" => "Solid Queue Failure History" }.fetch(@report.section) %></span>
+      <span class="text-muted small"><%= number_with_delimiter(@report.total_rows) %> records</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover table-sm align-middle mb-0">
+        <thead class="table-light"><tr>
+          <% @report.csv_headers.each do |header| %><th scope="col" class="text-nowrap"><%= header %></th><% end %>
+        </tr></thead>
+        <tbody>
+          <% @report.rows.each do |record| %>
+            <tr>
+              <% @report.csv_values(record).each do |value| %>
+                <td class="small" style="max-width: 360px; overflow-wrap: anywhere;"><%= value.presence || "—" %></td>
+              <% end %>
+            </tr>
+          <% end %>
+          <% if @report.rows.empty? %>
+            <tr><td colspan="<%= @report.csv_headers.length %>" class="text-center text-muted py-4">No records match the selected period and filters.</td></tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <% if @report.total_pages > 1 %>
+      <div class="card-footer d-flex justify-content-between align-items-center gap-2">
+        <span class="small text-muted">Page <%= @report.page %> of <%= @report.total_pages %></span>
+        <div class="btn-group" role="group" aria-label="Report pagination">
+          <%= link_to "Previous", infrastructure_operational_reports_path(request.query_parameters.merge(page: @report.page - 1)), class: "btn btn-outline-secondary #{'disabled' if @report.page == 1}", aria: { disabled: @report.page == 1 } %>
+          <%= link_to "Next", infrastructure_operational_reports_path(request.query_parameters.merge(page: @report.page + 1)), class: "btn btn-outline-secondary #{'disabled' if @report.page == @report.total_pages}", aria: { disabled: @report.page == @report.total_pages } %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>

@@ -1,0 +1,41 @@
+<% provide(:title, "Infrastructure Notifications") %>
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div><h1 class="h3 mb-1">Infrastructure Notifications</h1>
+      <p class="text-muted mb-0">Read-only notification delivery and escalation audit.</p></div>
+    <%= link_to "Monitoring Dashboard", infrastructure_monitoring_path, class: "btn btn-outline-secondary" %>
+  </div>
+  <div class="alert <%= @enabled ? 'alert-success' : 'alert-warning' %>" role="status">
+    Notifications: <strong><%= @enabled ? 'Enabled' : 'Disabled' %></strong> · Recipient: info@hergafarmsgroup.com
+  </div>
+  <div class="row g-3 mb-4">
+    <% %w[Pending Sending Accepted Unknown].each do |status| %>
+      <div class="col-6 col-lg-3"><div class="card shadow-sm h-100"><div class="card-body">
+        <div class="text-muted small"><%= status %></div><div class="h3 mb-0"><%= @summary.fetch(status, 0) %></div>
+      </div></div></div>
+    <% end %>
+  </div>
+  <div class="card shadow-sm"><div class="card-header fw-semibold">Notification Audit History (<%= @total %>)</div>
+    <div class="table-responsive"><table class="table table-hover align-middle mb-0">
+      <thead><tr><th>ID</th><th>Event</th><th>Source</th><th>Recipient</th><th>Status</th><th>Occurred (UTC)</th><th>SMTP accepted (UTC)</th></tr></thead>
+      <tbody>
+      <% @notifications.each do |notification| %>
+        <tr><td><%= notification.id %></td><td><%= notification.event_type %></td>
+          <td><%= notification.source_type %> #<%= notification.source_id %></td>
+          <td><%= notification.recipient %></td>
+          <td><span class="badge <%= notification.status == 'Accepted' ? 'bg-success' : notification.status == 'Unknown' ? 'bg-danger' : 'bg-secondary' %>"><%= notification.status %></span></td>
+          <td><%= notification.occurred_at.utc.strftime('%Y-%m-%d %H:%M') %></td>
+          <td><%= notification.accepted_at&.utc&.strftime('%Y-%m-%d %H:%M') || '—' %></td></tr>
+      <% end %>
+      <% if @notifications.empty? %><tr><td colspan="7" class="text-center text-muted py-4">No notification events recorded.</td></tr><% end %>
+      </tbody></table></div>
+    <% if @total_pages > 1 %>
+      <div class="card-footer d-flex justify-content-between align-items-center">
+        <span>Page <%= @page %> of <%= @total_pages %></span><div class="btn-group">
+          <%= link_to 'Previous', infrastructure_notifications_path(page: @page - 1), class: "btn btn-outline-secondary #{'disabled' if @page == 1}" %>
+          <%= link_to 'Next', infrastructure_notifications_path(page: @page + 1), class: "btn btn-outline-secondary #{'disabled' if @page == @total_pages}" %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>

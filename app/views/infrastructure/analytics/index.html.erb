@@ -1,0 +1,144 @@
+<% provide(:title, "Infrastructure Analytics & Trends") %>
+
+<div class="container-fluid py-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+      <h1 class="h3 mb-1"><i class="bi bi-graph-up-arrow me-2" aria-hidden="true"></i>Infrastructure Analytics &amp; Trends</h1>
+      <p class="text-muted mb-0">Daily monitoring outcomes, measured connectivity and historical failures.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <%= link_to "Monitoring Dashboard", infrastructure_monitoring_path, class: "btn btn-outline-secondary" %>
+      <%= link_to "Operational Reports", infrastructure_operational_reports_path, class: "btn btn-outline-secondary" %>
+      <%= link_to "Export CSV", infrastructure_analytics_path(period: @analytics.period, format: :csv), class: "btn btn-primary" %>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <%= form_with url: infrastructure_analytics_path, method: :get, local: true, class: "row g-3 align-items-end" do %>
+        <div class="col-sm-6 col-lg-3">
+          <%= label_tag :period, "Reporting period", class: "form-label" %>
+          <%= select_tag :period, options_for_select([["Last 7 days", "7"], ["Last 30 days", "30"], ["Last 90 days", "90"]], @analytics.period), class: "form-select" %>
+        </div>
+        <div class="col-sm-6 col-lg-3"><%= submit_tag "Update Analytics", class: "btn btn-primary w-100" %></div>
+      <% end %>
+      <p class="small text-muted mt-3 mb-0">Reporting window: <%= @analytics.start_at.utc.strftime("%d %b %Y %H:%M") %> to <%= @analytics.end_at.utc.strftime("%d %b %Y %H:%M") %> UTC. Charts are grouped by UTC date.</p>
+    </div>
+  </div>
+
+  <% s = @analytics.summary %>
+  <div class="row g-3 mb-4">
+    <% [
+      ["Execution success", s[:execution_success_percentage].nil? ? "No data" : "#{s[:execution_success_percentage]}%", "Completed / (completed + failed)"],
+      ["Connectivity availability", s[:connectivity_availability_percentage].nil? ? "No data" : "#{s[:connectivity_availability_percentage]}%", "Reachable / (reachable + unreachable)"],
+      ["Threshold breaches", s[:breaches], "Assessment records below threshold"],
+      ["Historical queue failures", s[:historical_queue_failures_in_period], "Failed executions recorded in this window"]
+    ].each do |label, value, description| %>
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card shadow-sm h-100"><div class="card-body">
+          <div class="small text-muted"><%= label %></div>
+          <div class="h3 mb-1"><%= value %></div>
+          <div class="small text-muted"><%= description %></div>
+        </div></div>
+      </div>
+    <% end %>
+  </div>
+
+  <% rows = @analytics.chart_rows %>
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-xl-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header fw-semibold">Daily monitoring execution success</div>
+        <div class="card-body">
+          <p class="small text-muted">Percentage of completed runs among completed and failed runs. Blank bars mean no finished runs.</p>
+          <div class="d-flex align-items-end gap-1 border-bottom pb-1" style="height: 170px" role="img" aria-label="Daily monitoring execution success bar chart; exact figures appear in the table below">
+            <% rows.each do |r| %>
+              <div class="flex-fill d-flex align-items-end h-100" title="<%= r[:date] %>: <%= r[:execution_success_percentage] || 'No data' %>%">
+                <% if r[:execution_success_percentage] %>
+                  <div class="bg-success w-100 rounded-top" style="height: <%= r[:execution_success_percentage] %>%"></div>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+          <div class="d-flex justify-content-between small text-muted mt-2"><span><%= rows.first[:date] %></span><span><%= rows.last[:date] %></span></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-xl-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header fw-semibold">Daily measured connectivity availability</div>
+        <div class="card-body">
+          <p class="small text-muted">Percentage of reachable checks among reachable and unreachable checks; unknown results excluded.</p>
+          <div class="d-flex align-items-end gap-1 border-bottom pb-1" style="height: 170px" role="img" aria-label="Daily connectivity availability bar chart; exact figures appear in the table below">
+            <% rows.each do |r| %>
+              <div class="flex-fill d-flex align-items-end h-100" title="<%= r[:date] %>: <%= r[:connectivity_availability_percentage] || 'No data' %>%">
+                <% if r[:connectivity_availability_percentage] %>
+                  <div class="bg-primary w-100 rounded-top" style="height: <%= r[:connectivity_availability_percentage] %>%"></div>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+          <div class="d-flex justify-content-between small text-muted mt-2"><span><%= rows.first[:date] %></span><span><%= rows.last[:date] %></span></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-xl-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header fw-semibold">Daily threshold breaches</div>
+        <div class="card-body">
+          <p class="small text-muted">Count of below-threshold assessment records, not unique affected assets.</p>
+          <% max_breaches = [rows.map { |r| r[:breaches] }.max.to_i, 1].max %>
+          <div class="d-flex align-items-end gap-1 border-bottom pb-1" style="height: 170px" role="img" aria-label="Daily threshold breach counts; exact figures appear in the table below">
+            <% rows.each do |r| %>
+              <div class="flex-fill d-flex align-items-end h-100" title="<%= r[:date] %>: <%= r[:breaches] %> breaches">
+                <% if r[:breaches].positive? %><div class="bg-warning w-100 rounded-top" style="height: <%= 100.0 * r[:breaches] / max_breaches %>%"></div><% end %>
+              </div>
+            <% end %>
+          </div>
+          <div class="d-flex justify-content-between small text-muted mt-2"><span><%= rows.first[:date] %></span><span>Max: <%= max_breaches %></span><span><%= rows.last[:date] %></span></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-xl-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header fw-semibold">Daily Solid Queue failure history</div>
+        <div class="card-body">
+          <p class="small text-muted">Historical failure records by creation date. These are not necessarily active incidents.</p>
+          <% max_failures = [rows.map { |r| r[:queue_failures] }.max.to_i, 1].max %>
+          <div class="d-flex align-items-end gap-1 border-bottom pb-1" style="height: 170px" role="img" aria-label="Daily Solid Queue failure counts; exact figures appear in the table below">
+            <% rows.each do |r| %>
+              <div class="flex-fill d-flex align-items-end h-100" title="<%= r[:date] %>: <%= r[:queue_failures] %> failed executions">
+                <% if r[:queue_failures].positive? %><div class="bg-danger w-100 rounded-top" style="height: <%= 100.0 * r[:queue_failures] / max_failures %>%"></div><% end %>
+              </div>
+            <% end %>
+          </div>
+          <div class="d-flex justify-content-between small text-muted mt-2"><span><%= rows.first[:date] %></span><span>Max: <%= max_failures %></span><span><%= rows.last[:date] %></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-header fw-semibold">Daily analytics data</div>
+    <div class="table-responsive">
+      <table class="table table-sm table-striped table-hover align-middle mb-0">
+        <thead class="table-light"><tr>
+          <th scope="col">UTC Date</th><th scope="col">Completed</th><th scope="col">Failed</th><th scope="col">Other</th>
+          <th scope="col">Success %</th><th scope="col">Reachable</th><th scope="col">Unreachable</th>
+          <th scope="col">Unknown</th><th scope="col">Availability %</th><th scope="col">Assessments</th>
+          <th scope="col">Breaches</th><th scope="col">Insufficient</th><th scope="col">Queue failures</th>
+        </tr></thead>
+        <tbody>
+          <% rows.reverse_each do |r| %>
+            <tr>
+              <td class="text-nowrap"><%= r[:date] %></td>
+              <% [:completed, :failed, :other, :execution_success_percentage, :reachable, :unreachable, :unknown, :connectivity_availability_percentage, :assessments, :breaches, :insufficient, :queue_failures].each do |key| %>
+                <td><%= r[key].nil? ? "—" : r[key] %></td>
+              <% end %>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

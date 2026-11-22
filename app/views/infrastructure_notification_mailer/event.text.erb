@@ -1,0 +1,36 @@
+
+<% if @test_notification %>
+HERGA CORPORATE PORTAL
+MICROSOFT GRAPH INTEGRATION TEST
+
+*** TEST MESSAGE - NO ACTION REQUIRED ***
+
+This is a synthetic notification generated to verify the
+HERGA Corporate Portal notification delivery pipeline.
+
+No infrastructure incident has been detected by this test.
+
+Asset: <%= @asset&.hostname || "Unknown" %>
+Notification ID: <%= @notification.id %>
+Recorded at (UTC): <%= @notification.occurred_at.utc.iso8601 %>
+
+This message verifies:
+- Rails notification processing
+- Solid Queue background delivery
+- Microsoft Graph email submission
+- Notification audit recording
+
+HERGA Corporate Portal
+<% else %>
+HERGA Corporate Portal — Infrastructure Notification
+
+Event: <%= @notification.event_type.underscore.humanize %>
+Asset: <%= @asset&.hostname || "Unknown" %>
+Recorded at (UTC): <%= @notification.occurred_at.utc.iso8601 %>
+Reference: <%= @notification.source_type %> #<%= @notification.source_id %>
+<% if @source.respond_to?(:severity) %>Severity: <%= @source.severity %>
+<% end %><% if @source.respond_to?(:status) %>Current status: <%= @source.status %>
+<% end %>
+This is an automated notification. Consult HERGA Corporate Portal for current status.
+<% end %>
+

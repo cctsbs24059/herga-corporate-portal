@@ -1,0 +1,36 @@
+<% provide(:title, "Availability Alerts") %>
+<div class="container-fluid py-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div><h1 class="h3 mb-1">Infrastructure Availability Alerts</h1>
+      <p class="text-muted mb-0">Persistent alerts from completed availability assessments; no incidents are created automatically.</p></div>
+    <%= link_to "Monitoring Dashboard", infrastructure_monitoring_path, class: "btn btn-outline-secondary" %>
+  </div>
+  <div class="row g-3 mb-4">
+    <% [["Active", @active_count, "danger"], ["Acknowledged", @acknowledged_count, "warning"], ["Cleared", @cleared_count, "success"]].each do |label, count, tone| %>
+      <div class="col-md-4"><div class="card shadow-sm border-0"><div class="card-body"><div class="text-muted"><%= label %></div><div class="fs-3 fw-bold text-<%= tone %>"><%= count %></div></div></div></div>
+    <% end %>
+  </div>
+  <div class="mb-3 d-flex flex-wrap gap-2">
+    <% %w[Unresolved Active Acknowledged Cleared All].each do |status| %>
+      <%= link_to status, infrastructure_availability_alerts_path(status: status), class: "btn btn-sm #{status == @status ? 'btn-primary' : 'btn-outline-primary'}" %>
+    <% end %>
+  </div>
+  <div class="card shadow-sm border-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+    <thead class="table-light"><tr><th>Asset</th><th>Status</th><th>Availability</th><th>Threshold</th><th>First detected</th><th>Last observed</th><th>Actions</th></tr></thead>
+    <tbody>
+      <% @alerts.each do |alert| %>
+        <tr>
+          <td><%= link_to alert.infrastructure_asset.hostname, infrastructure_asset_path(alert.infrastructure_asset) %></td>
+          <td><span class="badge <%= { 'Active' => 'bg-danger', 'Acknowledged' => 'bg-warning text-dark', 'Cleared' => 'bg-success' }.fetch(alert.status) %>"><%= alert.status %></span></td>
+          <td><%= alert.last_availability_percentage.nil? ? 'N/A' : "#{number_with_precision(alert.last_availability_percentage, precision: 2)}%" %></td>
+          <td><%= number_with_precision(alert.threshold_percentage, precision: 2) %>%</td>
+          <td><%= l(alert.first_detected_at, format: :long) %></td>
+          <td><%= l(alert.last_observed_at, format: :long) %></td>
+          <td><%= link_to "Details", infrastructure_availability_alert_path(alert), class: "btn btn-outline-primary btn-sm" %></td>
+        </tr>
+      <% end %>
+      <% if @alerts.empty? %><tr><td colspan="7" class="text-center text-muted py-4">No alerts for this filter.</td></tr><% end %>
+    </tbody>
+  </table></div></div>
+  <p class="small text-muted mt-2">Showing up to 200 most recently observed alerts.</p>
+</div>

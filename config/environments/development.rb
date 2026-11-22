@@ -89,4 +89,9 @@ Rails.application.configure do
 
   # Uncomment to enable RuboCop autocorrection for generators.
   # config.generators.apply_rubocop_autocorrect_after_generate!
+
+  # This code goes into .env file and uses the IPs in BIND_IPS
+  ENV.fetch("BIND_IPS", "").split(",").each do |ip|
+    config.hosts << ip.strip
+  end
 end

@@ -84,3 +84,5 @@ gem "net-ldap"
 
 gem "will_paginate", "~> 4.0"
 
+gem "csv"
+

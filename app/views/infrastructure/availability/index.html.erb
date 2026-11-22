@@ -1,0 +1,249 @@
+<% content_for :title, "Infrastructure Availability Report" %>
+
+<div class="container-fluid px-4 py-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+      <h2 class="fw-bold mb-1"><i class="bi bi-bar-chart-line me-2"></i>Infrastructure Availability</h2>
+      <p class="text-muted mb-0">HERGA.NET — recorded ICMP reachability across monitored assets</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <%= link_to infrastructure_monitoring_path, class: "btn btn-outline-primary" do %>
+        <i class="bi bi-speedometer2 me-1"></i>Monitoring Dashboard
+      <% end %>
+      <%= link_to infrastructure_availability_path(request.query_parameters.merge(format: :csv)), class: "btn btn-success" do %>
+        <i class="bi bi-filetype-csv me-1"></i>Export CSV
+      <% end %>
+      <%= link_to infrastructure_assets_path, class: "btn btn-outline-secondary" do %>
+        <i class="bi bi-hdd-network me-1"></i>Asset Inventory
+      <% end %>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body p-3">
+      <%= form_with url: infrastructure_availability_path, method: :get, local: true, class: "row g-3 align-items-end" do |f| %>
+        <div class="col-md-3">
+          <%= f.label :period, "Reporting period", class: "form-label fw-semibold" %>
+          <%= f.select :period, options_for_select([["24 Hours", "1"], ["7 Days", "7"], ["30 Days", "30"]], @period), {}, class: "form-select" %>
+        </div>
+        <div class="col-md-3">
+          <%= f.label :environment, "Environment", class: "form-label fw-semibold" %>
+          <%= f.select :environment, options_for_select([["All environments", ""]] + InfrastructureAsset::ENVIRONMENTS.map { |value| [value, value] }, @environment), {}, class: "form-select" %>
+        </div>
+        <div class="col-md-3">
+          <%= f.label :asset_type, "Asset type", class: "form-label fw-semibold" %>
+          <%= f.select :asset_type, options_for_select([["All asset types", ""]] + InfrastructureAsset::ASSET_TYPES.map { |value| [value, value] }, @asset_type), {}, class: "form-select" %>
+        </div>
+        <div class="col-md-3">
+          <%= f.label :q, "Search hostname / IP", class: "form-label fw-semibold" %>
+          <%= f.text_field :q, value: @query, maxlength: 100, class: "form-control", placeholder: "Search assets" %>
+        </div>
+        <div class="col-md-3">
+          <%= f.label :threshold, "Availability threshold", class: "form-label fw-semibold" %>
+          <%= f.select :threshold, options_for_select([["99%", "99"], ["95%", "95"], ["90%", "90"]], @threshold), {}, class: "form-select" %>
+        </div>
+        <div class="col-md-3">
+          <%= f.label :risk, "Threshold result", class: "form-label fw-semibold" %>
+          <%= f.select :risk, options_for_select([["All assets", "all"], ["Below threshold", "below"], ["Meets threshold", "meets"], ["No determinate data", "no_data"]], @risk_filter), {}, class: "form-select" %>
+        </div>
+        <div class="col-12 d-flex flex-wrap gap-2">
+          <%= f.submit "Apply Filters", class: "btn btn-primary" %>
+          <%= link_to "Reset", infrastructure_availability_path, class: "btn btn-outline-secondary" %>
+          <span class="small text-muted align-self-center ms-md-auto">
+            <%= l(@period_start, format: :short) %> – <%= l(@period_end, format: :short) %>
+          </span>
+        </div>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <% [
+      ["Recorded availability", @overall_availability.nil? ? "—" : "#{@overall_availability}%", "bi-activity", "text-success"],
+      ["Eligible assets", @total_assets, "bi-hdd-network", "text-primary"],
+      ["Assets with checks", @assets_with_checks, "bi-check-circle", "text-success"],
+      ["Unreachable checks", @unreachable_checks, "bi-exclamation-triangle", "text-danger"]
+    ].each do |label, value, icon, colour| %>
+      <div class="col-md-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body p-4">
+            <div class="text-muted small mb-2"><i class="bi <%= icon %> me-1"></i><%= label %></div>
+            <h3 class="fw-bold mb-0 <%= colour %>"><%= value %></h3>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <% [["Below threshold", @below_threshold_count, "text-danger"],
+        ["Meets threshold", @meets_threshold_count, "text-success"],
+        ["No determinate data", @no_data_count, "text-secondary"]].each do |label, count, colour| %>
+      <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100"><div class="card-body p-3">
+          <div class="small text-muted"><%= label %> (<%= @threshold %>%)</div>
+          <h3 class="fw-bold mb-0 <%= colour %>"><%= count %></h3>
+        </div></div>
+      </div>
+    <% end %>
+  </div>
+
+  <!-- PHASE 2D.8.2.4: READ-ONLY OPERATIONAL ALERTS -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <h5 class="fw-bold mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Availability Threshold Alerts</h5>
+      <span class="badge <%= @breached_assets.any? ? 'bg-danger' : 'bg-success' %>">
+        <%= @breached_assets.size %> below <%= @threshold %>%
+      </span>
+    </div>
+    <div class="card-body">
+      <p class="small text-muted">Reporting alerts only. No incidents are created or modified.</p>
+      <% if @breached_assets.any? %>
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle">
+            <thead><tr><th>Asset</th><th>Availability</th><th>Previous period</th><th>Assessment</th><th class="text-end">Details</th></tr></thead>
+            <tbody>
+              <% @breached_assets.first(10).each do |asset| %>
+                <% stat = @stats.fetch(asset.id, @empty_stats) %>
+                <% previous = @previous_stats[asset.id] %>
+                <tr>
+                  <td><%= asset.hostname %></td>
+                  <td><span class="badge bg-danger"><%= stat[:availability] %>%</span></td>
+                  <td><%= previous.nil? ? 'No determinate data' : "#{previous}%" %></td>
+                  <td>
+                    <% if @new_breaches.any? { |item| item.id == asset.id } %>
+                      <span class="badge bg-warning text-dark">New breach</span>
+                    <% else %>
+                      <span class="badge bg-secondary">Below threshold</span>
+                    <% end %>
+                  </td>
+                  <td class="text-end"><%= link_to 'History', history_infrastructure_asset_path(asset, period: @period), class: 'btn btn-sm btn-outline-primary' %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+        <% if @breached_assets.size > 10 %>
+          <p class="small text-muted mb-0">Showing 10 of <%= @breached_assets.size %> alerts. Use the Below threshold filter to view all.</p>
+        <% end %>
+      <% else %>
+        <p class="text-muted mb-0">No assets with determinate checks are below the selected threshold.</p>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white py-3"><h5 class="fw-bold mb-0"><i class="bi bi-arrow-left-right me-2"></i>Period-over-Period Comparison</h5></div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-4"><div class="small text-muted">Current period</div><h4><%= @overall_availability.nil? ? '—' : "#{@overall_availability}%" %></h4></div>
+        <div class="col-md-4"><div class="small text-muted">Previous equivalent period</div><h4><%= @previous_overall_availability.nil? ? '—' : "#{@previous_overall_availability}%" %></h4></div>
+        <div class="col-md-4"><div class="small text-muted">Change (percentage points)</div><h4 class="<%= @availability_change && @availability_change < 0 ? 'text-danger' : 'text-body' %>"><%= @availability_change.nil? ? '—' : "#{@availability_change > 0 ? '+' : ''}#{@availability_change} pp" %></h4></div>
+      </div>
+      <p class="small text-muted mb-0">Previous: <%= l(@previous_period_start, format: :short) %> – <%= l(@previous_period_end, format: :short) %>. Comparisons use recorded determinate checks, not elapsed-time uptime.</p>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <h5 class="fw-bold mb-0"><i class="bi bi-list-ol me-2"></i>Asset Availability Ranking</h5>
+      <span class="badge bg-secondary"><%= @total_assets %> matching assets</span>
+    </div>
+    <div class="card-body pb-0">
+      <p class="small text-muted mb-3">
+        Ranked from lowest recorded availability to highest. Assets without Reachable or Unreachable
+        checks appear last. Retired assets are excluded. Threshold: <strong><%= @threshold %>%</strong>.
+        The threshold applies only to recorded-check availability, not an uptime SLA.
+        Total checks: <strong><%= @total_checks %></strong>;
+        Reachable: <strong><%= @reachable_checks %></strong>;
+        Unreachable: <strong><%= @unreachable_checks %></strong>;
+        Unknown: <strong><%= @unknown_checks %></strong>;
+        No checks: <strong><%= @assets_without_checks %> assets</strong>.
+      </p>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th scope="col">Asset</th>
+            <th scope="col">Environment</th>
+            <th scope="col">Availability</th>
+            <th scope="col">Threshold</th>
+            <th scope="col" class="text-end">Checks</th>
+            <th scope="col" class="text-end">Unreachable</th>
+            <th scope="col" class="text-end">Unknown</th>
+            <th scope="col" class="text-end">Avg. latency</th>
+            <th scope="col" class="text-end">History</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @display_assets.each do |asset| %>
+            <% stat = @stats.fetch(asset.id, @empty_stats) %>
+            <tr>
+              <td>
+                <%= link_to asset.hostname, infrastructure_asset_path(asset), class: "fw-semibold text-decoration-none" %>
+                <% if asset.fqdn.present? %><div class="small text-muted"><%= asset.fqdn %></div><% end %>
+                <div class="small text-muted"><%= asset.asset_type %> · <%= asset.status %></div>
+              </td>
+              <td><span class="badge bg-secondary"><%= asset.environment %></span></td>
+              <td>
+                <% if stat[:availability].nil? %>
+                  <span class="text-muted">No determinate data</span>
+                <% else %>
+                  <% colour = stat[:availability] >= 99 ? "bg-success" : (stat[:availability] >= 95 ? "bg-warning text-dark" : "bg-danger") %>
+                  <span class="badge <%= colour %>"><%= stat[:availability] %>%</span>
+                <% end %>
+              </td>
+              <td>
+                <% risk = stat[:availability].nil? ? "no_data" : (stat[:availability] < @threshold_value ? "below" : "meets") %>
+                <% if risk == "below" %>
+                  <span class="badge bg-danger">Below <%= @threshold %>%</span>
+                <% elsif risk == "meets" %>
+                  <span class="badge bg-success">Meets <%= @threshold %>%</span>
+                <% else %>
+                  <span class="badge bg-secondary">No data</span>
+                <% end %>
+              </td>
+              <td class="text-end"><%= stat[:total] %></td>
+              <td class="text-end"><%= stat[:unreachable] %></td>
+              <td class="text-end"><%= stat[:unknown] %></td>
+              <td class="text-end"><%= stat[:average_latency] ? "#{number_with_precision(stat[:average_latency], precision: 2)} ms" : "—" %></td>
+              <td class="text-end">
+                <%= link_to history_infrastructure_asset_path(asset, period: @period), class: "btn btn-outline-primary btn-sm" do %>
+                  <i class="bi bi-graph-up me-1"></i>View
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+          <% if @display_assets.empty? %>
+            <tr><td colspan="9" class="text-center text-muted py-5">No assets match the selected filters.</td></tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <% if @total_pages > 1 %>
+      <div class="card-footer bg-white py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span class="small text-muted">Page <%= @page %> of <%= @total_pages %></span>
+        <div class="btn-group">
+          <% if @page > 1 %>
+            <%= link_to "Previous", infrastructure_availability_path(period: @period, environment: @environment, asset_type: @asset_type, q: @query, threshold: @threshold, risk: @risk_filter, page: @page - 1), class: "btn btn-outline-primary btn-sm" %>
+          <% end %>
+          <% if @page < @total_pages %>
+            <%= link_to "Next", infrastructure_availability_path(period: @period, environment: @environment, asset_type: @asset_type, q: @query, threshold: @threshold, risk: @risk_filter, page: @page + 1), class: "btn btn-outline-primary btn-sm" %>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+
+  <div class="alert alert-light border small text-muted">
+    <i class="bi bi-info-circle me-1"></i>
+    Alerts are read-only and evaluated when the report is requested; they are not scheduled notifications.
+    CSV exports all assets matching the current filters, including those on other pages.
+    Threshold classifications are reporting indicators, not confirmed outages or SLA breaches.
+    Availability is the percentage of recorded Reachable ICMP checks among Reachable and Unreachable
+    checks. Unknown checks are excluded from the percentage and shown separately. This is not
+    elapsed-time uptime, an SLA measurement, or proof of server availability. Measurements originate
+    from the HERGA Portal server.
+  </div>
+</div>

@@ -1,0 +1,173 @@
+<% content_for :title, "Monitoring History - #{@asset.hostname}" %>
+
+<div class="container-fluid px-4 py-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+      <h2 class="fw-bold mb-1"><i class="bi bi-graph-up me-2"></i>Monitoring History</h2>
+      <p class="text-muted mb-0"><%= @asset.hostname %><% if @asset.fqdn.present? %> | <%= @asset.fqdn %><% end %></p>
+    </div>
+    <div class="d-flex gap-2">
+      <%= link_to "Asset Details", infrastructure_asset_path(@asset), class: "btn btn-outline-primary" %>
+      <%= link_to "Monitoring Dashboard", infrastructure_monitoring_path, class: "btn btn-outline-secondary" %>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+      <div>
+        <h5 class="fw-bold mb-1">Reporting Period</h5>
+        <span class="text-muted small">Historical DNS and ICMP connectivity measurements</span>
+      </div>
+      <div class="btn-group" role="group" aria-label="Reporting period">
+        <% [[1, "24 Hours"], [7, "7 Days"], [30, "30 Days"]].each do |days, label| %>
+          <%= link_to label, history_infrastructure_asset_path(@asset, period: days), class: "btn #{@period_days == days ? 'btn-primary' : 'btn-outline-primary'}" %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-6 col-xl-3">
+      <div class="card border-0 shadow-sm h-100"><div class="card-body p-4">
+        <div class="small text-muted mb-2">Recorded Availability</div>
+        <h3 class="fw-bold text-success"><%= @availability_percentage.nil? ? "—" : "#{@availability_percentage}%" %></h3>
+        <div class="small text-muted"><%= @reachable_checks %> of <%= @determinate_checks %> determinate checks</div>
+      </div></div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+      <div class="card border-0 shadow-sm h-100"><div class="card-body p-4">
+        <div class="small text-muted mb-2">Average ICMP Latency</div>
+        <h3 class="fw-bold"><%= @average_latency.nil? ? "—" : "#{number_with_precision(@average_latency, precision: 2)} ms" %></h3>
+        <div class="small text-muted">Reachable checks with latency measurements</div>
+      </div></div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+      <div class="card border-0 shadow-sm h-100"><div class="card-body p-4">
+        <div class="small text-muted mb-2">Total Connectivity Checks</div>
+        <h3 class="fw-bold"><%= number_with_delimiter(@total_checks) %></h3>
+        <div class="small text-muted">Selected reporting period</div>
+      </div></div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+      <div class="card border-0 shadow-sm h-100"><div class="card-body p-4">
+        <div class="small text-muted mb-2">Unreachable Checks</div>
+        <h3 class="fw-bold text-danger"><%= @unreachable_checks %></h3>
+        <div class="small text-muted"><%= @unknown_checks %> unknown checks</div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white py-3"><h5 class="fw-bold mb-0"><i class="bi bi-bar-chart me-2"></i>Connectivity Breakdown</h5></div>
+    <div class="card-body p-4">
+      <% if @total_checks.positive? %>
+        <div class="progress mb-3" style="height: 24px;" role="img" aria-label="Connectivity breakdown: <%= @reachable_checks %> reachable, <%= @unreachable_checks %> unreachable, <%= @unknown_checks %> unknown">
+          <div class="progress-bar bg-success" style="width: <%= @reachable_checks.to_f / @total_checks * 100 %>%" title="Reachable"></div>
+          <div class="progress-bar bg-danger" style="width: <%= @unreachable_checks.to_f / @total_checks * 100 %>%" title="Unreachable"></div>
+          <div class="progress-bar bg-secondary" style="width: <%= @unknown_checks.to_f / @total_checks * 100 %>%" title="Unknown"></div>
+        </div>
+        <div class="d-flex flex-wrap gap-4 small">
+          <span class="text-success">● Reachable: <%= @reachable_checks %></span>
+          <span class="text-danger">● Unreachable: <%= @unreachable_checks %></span>
+          <span class="text-secondary">● Unknown: <%= @unknown_checks %></span>
+        </div>
+      <% else %>
+        <p class="text-muted mb-0">No connectivity checks recorded for this period.</p>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white py-3"><h5 class="fw-bold mb-0"><i class="bi bi-activity me-2"></i>ICMP Response Time Trend</h5></div>
+    <div class="card-body p-4">
+      <div class="row g-3 mb-4">
+        <% [["Minimum", @minimum_latency], ["Average", @average_latency], ["Maximum", @maximum_latency]].each do |label, value| %>
+          <div class="col-md-4"><div class="small text-muted"><%= label %></div>
+            <strong><%= value.nil? ? "—" : "#{number_with_precision(value, precision: 2)} ms" %></strong>
+          </div>
+        <% end %>
+      </div>
+      <% if @chart_results.any? %>
+        <p class="small text-muted">Latest <%= @chart_results.size %> checks, displayed chronologically. Bars are scaled to the highest measured latency in this sample.</p>
+        <div class="d-flex align-items-end gap-1 border-bottom pb-2" style="height: 180px;">
+          <% @chart_results.each do |result| %>
+            <% if result.icmp_status == "Reachable" && !result.icmp_response_ms.nil? %>
+              <% bar_height = [result.icmp_response_ms.to_f / @chart_maximum_latency * 100, 2].max %>
+              <div class="bg-primary rounded-top flex-fill" style="height: <%= bar_height %>%; min-width: 3px;" title="<%= l(result.checked_at, format: :long) %>: <%= number_with_precision(result.icmp_response_ms, precision: 2) %> ms"></div>
+            <% else %>
+              <div class="<%= result.icmp_status == 'Unreachable' ? 'bg-danger' : 'bg-secondary' %> rounded-top flex-fill" style="height: 5%; min-width: 3px;" title="<%= l(result.checked_at, format: :long) %>: <%= result.icmp_status.presence || 'Unknown' %>"></div>
+            <% end %>
+          <% end %>
+        </div>
+        <div class="d-flex justify-content-between text-muted small mt-2">
+          <span><%= l(@chart_results.first.checked_at, format: :short) %></span>
+          <span><%= l(@chart_results.last.checked_at, format: :short) %></span>
+        </div>
+        <p class="small text-muted mt-3 mb-0">Blue: measured latency. Red: unreachable. Grey: unknown. Red and grey markers are not latency measurements.</p>
+      <% else %>
+        <p class="text-muted mb-0">No latency history available for this period.</p>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+      <h5 class="fw-bold mb-0"><i class="bi bi-clock-history me-2"></i>Connectivity Check History</h5>
+      <span class="badge bg-secondary"><%= @total_checks %> Records</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light"><tr>
+          <th>Checked At</th><th>DNS</th><th>Resolved IP</th><th>ICMP</th><th>Latency</th><th>Monitoring Run</th><th>Diagnostic</th>
+        </tr></thead>
+        <tbody>
+          <% @connectivity_results.each do |result| %>
+            <tr>
+              <td class="small"><%= l(result.checked_at, format: :long) %></td>
+              <td><span class="badge <%= result.dns_status == 'Resolved' ? 'bg-success' : result.dns_status == 'Failed' ? 'bg-danger' : 'bg-secondary' %>"><%= result.dns_status.presence || 'Unknown' %></span></td>
+              <td class="small"><%= result.resolved_ip_address.presence || '—' %></td>
+              <td>
+                <% icmp_badge = case result.icmp_status
+                  when 'Reachable' then 'bg-success'
+                  when 'Unreachable' then 'bg-danger'
+                  else 'bg-secondary'
+                end %>
+                <span class="badge <%= icmp_badge %>"><%= result.icmp_status.presence || 'Unknown' %></span>
+              </td>
+              <td><%= result.icmp_status == 'Reachable' && !result.icmp_response_ms.nil? ? "#{number_with_precision(result.icmp_response_ms, precision: 2)} ms" : '—' %></td>
+              <td>
+                <% if result.infrastructure_monitoring_run_id.present? %>
+                  <span class="badge bg-primary">Run #<%= result.infrastructure_monitoring_run_id %></span>
+                <% else %>
+                  <span class="badge bg-secondary">Manual</span>
+                <% end %>
+              </td>
+              <td class="small text-break"><%= result.connectivity_error.present? ? truncate(result.connectivity_error, length: 100) : '—' %></td>
+            </tr>
+          <% end %>
+          <% if @connectivity_results.empty? %>
+            <tr><td colspan="7" class="text-center text-muted py-5">No connectivity results found.</td></tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <% if @total_pages > 1 %>
+      <div class="card-footer bg-white py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span class="small text-muted">Page <%= @page %> of <%= @total_pages %></span>
+        <div class="btn-group">
+          <% if @page > 1 %>
+            <%= link_to 'Previous', history_infrastructure_asset_path(@asset, period: @period_days, page: @page - 1), class: 'btn btn-outline-primary btn-sm' %>
+          <% end %>
+          <% if @page < @total_pages %>
+            <%= link_to 'Next', history_infrastructure_asset_path(@asset, period: @period_days, page: @page + 1), class: 'btn btn-outline-primary btn-sm' %>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+
+  <div class="alert alert-light border small text-muted">
+    <i class="bi bi-info-circle me-1"></i>
+    Availability is the proportion of recorded Reachable checks among Reachable and Unreachable checks. Unknown checks are excluded and shown separately. This is not a measurement of continuous uptime. Checks originate from the HERGA Portal application server.
+  </div>
+</div>
