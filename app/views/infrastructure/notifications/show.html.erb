@@ -1,0 +1,229 @@
+
+<% provide(:title, "Notification ##{@notification.id}") %>
+
+<div class="container-fluid py-4">
+
+  <!-- Header -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+      <h1 class="h3 mb-1">
+        Notification #<%= @notification.id %>
+      </h1>
+
+      <p class="text-muted mb-0">
+        Event details, Microsoft Graph submission and delivery audit.
+      </p>
+    </div>
+
+    <div class="d-flex gap-2">
+      <%= link_to "Back to Notifications",
+                  infrastructure_notifications_path,
+                  class: "btn btn-outline-secondary" %>
+
+      <%= link_to "Refresh",
+                  infrastructure_notification_path(@notification),
+                  class: "btn btn-outline-primary" %>
+    </div>
+  </div>
+
+  <% if @notification.event_key.start_with?("HERGA-GRAPH-TEST-") %>
+    <div class="alert alert-info">
+      <strong>Test Notification:</strong>
+      This record was generated for integration testing.
+      It does not represent a confirmed infrastructure incident.
+    </div>
+  <% end %>
+
+  <!-- Notification summary -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header fw-semibold">
+      Notification Information
+    </div>
+
+    <div class="card-body">
+      <div class="row g-3">
+
+        <div class="col-md-6">
+          <strong>Event Type</strong>
+          <div><%= @notification.event_type.underscore.humanize %></div>
+        </div>
+
+        <div class="col-md-6">
+          <strong>Delivery Status</strong>
+          <div>
+            <% badge_class = case @notification.status
+               when "Accepted" then "bg-success"
+               when "Pending" then "bg-warning text-dark"
+               when "Sending" then "bg-info text-dark"
+               else "bg-secondary"
+               end %>
+
+            <span class="badge <%= badge_class %>">
+              <%= @notification.status %>
+            </span>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <strong>Recipient</strong>
+          <div><%= @notification.recipient %></div>
+        </div>
+
+        <div class="col-md-6">
+          <strong>Asset</strong>
+          <div><%= @asset&.hostname || "Unavailable" %></div>
+        </div>
+
+        <div class="col-md-6">
+          <strong>Source</strong>
+          <div>
+            <%= @notification.source_type %>
+            #<%= @notification.source_id %>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <strong>Escalation Level</strong>
+          <div><%= @notification.escalation_level %></div>
+        </div>
+
+        <div class="col-md-6">
+          <strong>Event Occurred</strong>
+          <div>
+            <%= @notification.occurred_at&.utc&.strftime(
+                  "%d %b %Y %H:%M:%S UTC"
+                ) || "—" %>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <strong>Submission Accepted</strong>
+          <div>
+            <%= @notification.accepted_at&.utc&.strftime(
+                  "%d %b %Y %H:%M:%S UTC"
+                ) || "Not accepted" %>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <strong>Event Key</strong>
+          <div class="small text-break">
+            <%= @notification.event_key %>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Source record -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header fw-semibold">
+      Related Infrastructure Record
+    </div>
+
+    <div class="card-body">
+      <% if @source.is_a?(InfrastructureIncident) %>
+        <%= link_to "View Incident",
+                    infrastructure_incident_path(@source),
+                    class: "btn btn-outline-primary" %>
+
+      <% elsif @source.is_a?(InfrastructureAvailabilityAlert) %>
+        <%= link_to "View Availability Alert",
+                    infrastructure_availability_alert_path(@source),
+                    class: "btn btn-outline-primary" %>
+
+      <% elsif @source.is_a?(InfrastructureAsset) %>
+        <%= link_to "View Infrastructure Asset",
+                    infrastructure_asset_path(@source),
+                    class: "btn btn-outline-primary" %>
+
+      <% else %>
+        <p class="text-muted mb-0">
+          The originating record is unavailable.
+        </p>
+      <% end %>
+    </div>
+  </div>
+
+  <!-- Delivery attempts -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header fw-semibold">
+      Delivery Attempt Audit Trail
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Attempt ID</th>
+            <th>Status</th>
+            <th>Attempted (UTC)</th>
+            <th>Provider Message ID</th>
+            <th>Error</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <% @attempts.each do |attempt| %>
+            <tr>
+              <td><%= attempt.id %></td>
+
+              <td>
+                <span class="badge <%= attempt.status == 'Accepted' ? 'bg-success' : 'bg-secondary' %>">
+                  <%= attempt.status %>
+                </span>
+              </td>
+
+              <td>
+                <%= attempt.attempted_at.utc.strftime(
+                      "%d %b %Y %H:%M:%S"
+                    ) %>
+              </td>
+
+              <td class="text-break">
+                <%= attempt.provider_message_id.presence || "—" %>
+              </td>
+
+              <td class="text-break">
+                <% if attempt.error_message.present? %>
+                  <span class="text-danger">
+                    <%= attempt.error_class.presence || "Error" %>:
+                    <%= attempt.error_message %>
+                  </span>
+                <% else %>
+                  —
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+
+          <% if @attempts.empty? %>
+            <tr>
+              <td colspan="5" class="text-center text-muted py-4">
+                No delivery attempts recorded.
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Last error -->
+  <% if @notification.last_error.present? %>
+    <div class="alert alert-warning">
+      <strong>Last Delivery Error</strong>
+      <div class="mt-2 text-break">
+        <%= @notification.last_error %>
+      </div>
+    </div>
+  <% end %>
+
+  <div class="alert alert-light border small">
+    <strong>Delivery interpretation:</strong>
+    Accepted indicates that Microsoft Graph accepted the email
+    submission. It is not a delivery receipt.
+  </div>
+
+</div>

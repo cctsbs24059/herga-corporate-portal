@@ -12,26 +12,26 @@ module Infrastructure
       return unless notification
 
       cutoff = NotificationSettings.activation_time
+      now = Time.current
 
-      # Never deliver notifications outside the activation window.
       return if cutoff.nil?
       return if notification.occurred_at.nil?
       return if notification.occurred_at < cutoff
-      return if notification.occurred_at > Time.current
+      return if notification.occurred_at > now
 
-      # Prevent duplicate sends from concurrent workers.
+      # Atomically claim a Pending notification.
       claimed = InfrastructureNotification
         .where(id: notification.id, status: "Pending")
         .update_all(
           status: "Sending",
-          attempted_at: Time.current,
-          updated_at: Time.current
+          attempted_at: now,
+          last_attempt_at: now,
+          updated_at: now
         )
 
       return unless claimed == 1
 
       begin
-        # Render the existing Rails mailer without using SMTP.
         message = InfrastructureNotificationMailer
           .event(notification.id)
           .message
@@ -44,50 +44,81 @@ module Infrastructure
 
         raise "Notification email body is empty" if body.blank?
 
-        # Send through Microsoft Graph.
+        # Microsoft Graph submission.
         Infrastructure::MicrosoftGraphMailSender.new.deliver!(
           to: notification.recipient,
           subject: message.subject,
           body: body
         )
 
-        now = Time.current
+        # Record acceptance and audit atomically.
+        notification.with_lock do
+          if notification.status == "Sending"
+            accepted_at = Time.current
 
-        notification.update!(
-          status: "Accepted",
-          accepted_at: now,
-          last_error: nil
-        )
+            notification.update!(
+              status: "Accepted",
+              accepted_at: accepted_at,
+              last_error: nil,
+              attempt_count: notification.attempt_count.to_i + 1
+            )
 
-        notification.infrastructure_notification_attempts.create!(
-          status: "Accepted",
-          attempted_at: now
-        )
+            notification.infrastructure_notification_attempts.create!(
+              status: "Accepted",
+              attempted_at: accepted_at
+            )
+          else
+            Rails.logger.warn(
+              "[InfrastructureNotifications] " \
+              "id=#{notification.id} Graph accepted, but status " \
+              "changed to #{notification.status} before recording"
+            )
+          end
+        end
 
         Rails.logger.info(
           "[InfrastructureNotifications] " \
-          "id=#{notification.id} Graph submission accepted"
+          "id=#{notification.id} Graph submission completed"
         )
 
       rescue StandardError => e
-        # Do not retry automatically: Graph may have accepted
-        # the message before a network error was reported.
         error = "#{e.class}: #{e.message}".truncate(1000)
 
         Rails.logger.error(
           "[InfrastructureNotifications] id=#{notification.id} #{error}"
         )
 
-        notification.update!(
-          status: "Unknown",
-          last_error: error
-        )
+        # Do not retry automatically.
+        # A timeout may occur after Graph accepted the message.
+        begin
+          notification.with_lock do
+            if notification.status == "Sending"
+              notification.update!(
+                status: "Unknown",
+                last_error: error,
+                attempt_count: notification.attempt_count.to_i + 1
+              )
 
-        notification.infrastructure_notification_attempts.create!(
-          status: "Unknown",
-          attempted_at: Time.current,
-          error_message: error
-        )
+              notification.infrastructure_notification_attempts.create!(
+                status: "Unknown",
+                attempted_at: Time.current,
+                error_message: error,
+                error_class: e.class.name
+              )
+            end
+          end
+        rescue StandardError => audit_error
+          Rails.logger.error(
+            "[InfrastructureNotifications] " \
+            "id=#{notification.id} audit persistence failed: " \
+            "#{audit_error.class}: #{audit_error.message}"
+          )
+
+          # Surface database failures to the job infrastructure.
+          # The notification is no longer Pending, so replaying
+          # this job cannot automatically resend it.
+          raise
+        end
       end
     end
   end

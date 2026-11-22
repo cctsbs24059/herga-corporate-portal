@@ -1,41 +1,259 @@
+
 <% provide(:title, "Infrastructure Notifications") %>
+
 <div class="container-fluid py-4">
-  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-    <div><h1 class="h3 mb-1">Infrastructure Notifications</h1>
-      <p class="text-muted mb-0">Read-only notification delivery and escalation audit.</p></div>
-    <%= link_to "Monitoring Dashboard", infrastructure_monitoring_path, class: "btn btn-outline-secondary" %>
+
+  <!-- Header -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+      <h1 class="h3 mb-1">Infrastructure Notification Centre</h1>
+      <p class="text-muted mb-0">
+        Monitor infrastructure events, Microsoft Graph submissions
+        and notification delivery history.
+      </p>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2">
+      <%= link_to "Executive Dashboard",
+                  infrastructure_executive_dashboard_path,
+                  class: "btn btn-outline-secondary" %>
+
+      <%= link_to "Monitoring",
+                  infrastructure_monitoring_path,
+                  class: "btn btn-outline-primary" %>
+
+      <%= link_to "Refresh",
+                  infrastructure_notifications_path(
+                    status: @status_filter,
+                    event_type: @event_filter,
+                    q: @search
+                  ),
+                  class: "btn btn-outline-primary" %>
+    </div>
   </div>
-  <div class="alert <%= @enabled ? 'alert-success' : 'alert-warning' %>" role="status">
-    Notifications: <strong><%= @enabled ? 'Enabled' : 'Disabled' %></strong> · Recipient: info@hergafarmsgroup.com
-  </div>
-  <div class="row g-3 mb-4">
-    <% %w[Pending Sending Accepted Unknown].each do |status| %>
-      <div class="col-6 col-lg-3"><div class="card shadow-sm h-100"><div class="card-body">
-        <div class="text-muted small"><%= status %></div><div class="h3 mb-0"><%= @summary.fetch(status, 0) %></div>
-      </div></div></div>
-    <% end %>
-  </div>
-  <div class="card shadow-sm"><div class="card-header fw-semibold">Notification Audit History (<%= @total %>)</div>
-    <div class="table-responsive"><table class="table table-hover align-middle mb-0">
-      <thead><tr><th>ID</th><th>Event</th><th>Source</th><th>Recipient</th><th>Status</th><th>Occurred (UTC)</th><th>SMTP accepted (UTC)</th></tr></thead>
-      <tbody>
-      <% @notifications.each do |notification| %>
-        <tr><td><%= notification.id %></td><td><%= notification.event_type %></td>
-          <td><%= notification.source_type %> #<%= notification.source_id %></td>
-          <td><%= notification.recipient %></td>
-          <td><span class="badge <%= notification.status == 'Accepted' ? 'bg-success' : notification.status == 'Unknown' ? 'bg-danger' : 'bg-secondary' %>"><%= notification.status %></span></td>
-          <td><%= notification.occurred_at.utc.strftime('%Y-%m-%d %H:%M') %></td>
-          <td><%= notification.accepted_at&.utc&.strftime('%Y-%m-%d %H:%M') || '—' %></td></tr>
-      <% end %>
-      <% if @notifications.empty? %><tr><td colspan="7" class="text-center text-muted py-4">No notification events recorded.</td></tr><% end %>
-      </tbody></table></div>
-    <% if @total_pages > 1 %>
-      <div class="card-footer d-flex justify-content-between align-items-center">
-        <span>Page <%= @page %> of <%= @total_pages %></span><div class="btn-group">
-          <%= link_to 'Previous', infrastructure_notifications_path(page: @page - 1), class: "btn btn-outline-secondary #{'disabled' if @page == 1}" %>
-          <%= link_to 'Next', infrastructure_notifications_path(page: @page + 1), class: "btn btn-outline-secondary #{'disabled' if @page == @total_pages}" %>
+
+  <!-- Notification configuration -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <div class="d-flex flex-wrap align-items-center gap-3">
+        <div>
+          <strong>Notification Service</strong>
+          <% if @enabled %>
+            <span class="badge bg-success ms-2">Enabled</span>
+          <% else %>
+            <span class="badge bg-secondary ms-2">Disabled</span>
+          <% end %>
+        </div>
+
+        <div class="text-muted small">
+          Activation:
+          <%= @activation_time ?
+              @activation_time.utc.strftime("%d %b %Y %H:%M UTC") :
+              "Not configured" %>
         </div>
       </div>
-    <% end %>
+    </div>
   </div>
+
+  <!-- Delivery statistics -->
+  <div class="row g-3 mb-4">
+
+    <% [
+      ["Total", @total_notifications, "text-primary"],
+      ["Pending", @summary.fetch("Pending", 0), "text-warning"],
+      ["Sending", @summary.fetch("Sending", 0), "text-info"],
+      ["Accepted", @summary.fetch("Accepted", 0), "text-success"],
+      ["Unknown", @summary.fetch("Unknown", 0), "text-danger"]
+    ].each do |label, count, colour| %>
+
+      <div class="col-6 col-lg">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="text-muted small"><%= label %></div>
+            <div class="h3 mt-2 mb-0 <%= colour %>">
+              <%= number_with_delimiter(count) %>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    <% end %>
+
+  </div>
+
+  <!-- Search and filters -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header fw-semibold">
+      Search & Filter Notifications
+    </div>
+
+    <div class="card-body">
+      <%= form_with url: infrastructure_notifications_path,
+                    method: :get,
+                    local: true,
+                    class: "row g-3 align-items-end" do %>
+
+        <div class="col-md-4">
+          <%= label_tag :q, "Search", class: "form-label" %>
+          <%= text_field_tag :q,
+                             @search,
+                             class: "form-control",
+                             placeholder: "Notification ID, key or recipient" %>
+        </div>
+
+        <div class="col-md-3">
+          <%= label_tag :status, "Delivery Status", class: "form-label" %>
+          <%= select_tag :status,
+                         options_for_select(
+                           [["All statuses", ""]] +
+                           @statuses.map { |s| [s, s] },
+                           @status_filter
+                         ),
+                         class: "form-select" %>
+        </div>
+
+        <div class="col-md-3">
+          <%= label_tag :event_type, "Event Type", class: "form-label" %>
+          <%= select_tag :event_type,
+                         options_for_select(
+                           [["All events", ""]] +
+                           @events.map { |e| [e.underscore.humanize, e] },
+                           @event_filter
+                         ),
+                         class: "form-select" %>
+        </div>
+
+        <div class="col-md-2">
+          <%= submit_tag "Apply Filters",
+                         class: "btn btn-primary w-100" %>
+        </div>
+
+      <% end %>
+
+      <div class="mt-3">
+        <%= link_to "Clear Filters",
+                    infrastructure_notifications_path,
+                    class: "btn btn-sm btn-outline-secondary" %>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification history -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span class="fw-semibold">Notification History</span>
+      <span class="text-muted small">
+        <%= number_with_delimiter(@total) %> matching records
+      </span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover table-sm align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Event</th>
+            <th>Recipient</th>
+            <th>Status</th>
+            <th>Occurred (UTC)</th>
+            <th>Accepted (UTC)</th>
+            <th class="text-end">Details</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <% @notifications.each do |notification| %>
+            <tr>
+              <td><%= notification.id %></td>
+
+              <td>
+                <%= notification.event_type.underscore.humanize %>
+                <% if notification.event_key.start_with?("HERGA-GRAPH-TEST-") %>
+                  <span class="badge bg-info text-dark">Test</span>
+                <% end %>
+              </td>
+
+              <td><%= notification.recipient %></td>
+
+              <td>
+                <% badge_class = case notification.status
+                   when "Accepted" then "bg-success"
+                   when "Pending" then "bg-warning text-dark"
+                   when "Sending" then "bg-info text-dark"
+                   else "bg-secondary"
+                   end %>
+
+                <span class="badge <%= badge_class %>">
+                  <%= notification.status %>
+                </span>
+              </td>
+
+              <td>
+                <%= notification.occurred_at&.utc&.strftime(
+                      "%d %b %Y %H:%M"
+                    ) || "—" %>
+              </td>
+
+              <td>
+                <%= notification.accepted_at&.utc&.strftime(
+                      "%d %b %Y %H:%M"
+                    ) || "—" %>
+              </td>
+
+              <td class="text-end">
+                <%= link_to "View",
+                            infrastructure_notification_path(notification),
+                            class: "btn btn-sm btn-outline-primary" %>
+              </td>
+            </tr>
+          <% end %>
+
+          <% if @notifications.empty? %>
+            <tr>
+              <td colspan="7" class="text-center text-muted py-4">
+                No notifications match the selected filters.
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="card-footer d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <span class="small text-muted">
+        Page <%= @page %> of <%= @total_pages %>
+      </span>
+
+      <div class="d-flex gap-2">
+        <% filter_params = {
+          status: @status_filter,
+          event_type: @event_filter,
+          q: @search
+        } %>
+
+        <% if @page > 1 %>
+          <%= link_to "Previous",
+                      infrastructure_notifications_path(
+                        filter_params.merge(page: @page - 1)
+                      ),
+                      class: "btn btn-sm btn-outline-secondary" %>
+        <% end %>
+
+        <% if @page < @total_pages %>
+          <%= link_to "Next",
+                      infrastructure_notifications_path(
+                        filter_params.merge(page: @page + 1)
+                      ),
+                      class: "btn btn-sm btn-outline-primary" %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <p class="small text-muted">
+    Accepted means Microsoft Graph accepted the email submission.
+    It does not independently confirm delivery to the recipient.
+  </p>
+
 </div>

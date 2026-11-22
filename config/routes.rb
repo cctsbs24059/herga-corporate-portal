@@ -163,11 +163,13 @@ Rails.application.routes.draw do
     # --------------------------------------------------------
     # Phase 2D.8.2.13
     # Infrastructure Notifications & Escalation
+    #
+    # Phase 2D.8.3.2
+    # Notification Centre & Delivery Audit Trail
     # --------------------------------------------------------
 
-    get "notifications",
-        to: "notifications#index",
-        as: :notifications
+    resources :notifications,
+              only: [:index, :show]
 
   end
 
