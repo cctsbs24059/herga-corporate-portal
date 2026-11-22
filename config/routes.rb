@@ -181,16 +181,20 @@ Rails.application.routes.draw do
     #
     # IMPORTANT ROUTING RULE:
     #
-    # All static notification routes must be declared
-    # before the dynamic notifications resource.
+    # All static notification routes must appear before
+    # the dynamic notifications resource.
     #
-    # This prevents Rails interpreting:
+    # Static routes:
     #
-    #   /notifications/reports
-    #   /notifications/analytics
     #   /notifications/job_failures
+    #   /notifications/analytics
+    #   /notifications/reports
+    #   /notifications/operations
     #
-    # as notification record IDs.
+    # Dynamic routes:
+    #
+    #   /notifications
+    #   /notifications/:id
     #
     # ========================================================
 
@@ -198,8 +202,8 @@ Rails.application.routes.draw do
     # Phase 2D.8.4.3.4
     # Advanced Notification Failure Investigation
     #
-    # Administrator-only access enforced by controller
-    # Read-only failure history and investigation details
+    # Administrator-only access enforced by controller.
+    # Read-only failure history and investigation details.
     # --------------------------------------------------------
 
     get "notifications/job_failures",
@@ -215,8 +219,8 @@ Rails.application.routes.draw do
     # Phase 2D.8.4.3.5
     # Notification Operational Analytics & Trends
     #
-    # Administrator-only access enforced by controller
-    # Read-only analytics and reporting dashboard
+    # Administrator-only access enforced by controller.
+    # Read-only analytics and reporting dashboard.
     # --------------------------------------------------------
 
     get "notifications/analytics",
@@ -227,8 +231,8 @@ Rails.application.routes.draw do
     # Phase 2D.8.4.3.6
     # Notification Reporting & CSV Export
     #
-    # Administrator-only access enforced by controller
-    # Read-only reporting and CSV downloads
+    # Administrator-only access enforced by controller.
+    # Read-only reporting and CSV downloads.
     #
     # Supported report types:
     #
@@ -243,7 +247,7 @@ Rails.application.routes.draw do
     #   30d
     #   90d
     #
-    # Example:
+    # Dashboard:
     #
     # /infrastructure/notifications/reports
     #
@@ -256,6 +260,34 @@ Rails.application.routes.draw do
     get "notifications/reports",
         to: "notification_reports#index",
         as: :notification_reports
+
+    # --------------------------------------------------------
+    # Phase 2D.8.4.3.7
+    # Notification Operations Dashboard
+    #
+    # Administrator-only access enforced by controller.
+    #
+    # Consolidated read-only operational dashboard:
+    #
+    #   - Notification delivery statistics
+    #   - Microsoft Graph acceptance metrics
+    #   - Unknown submission outcomes
+    #   - Notification job diagnostics
+    #   - Solid Queue health
+    #   - Reporting period selection
+    #   - Navigation to notification modules
+    #
+    # Dashboard:
+    #
+    # /infrastructure/notifications/operations
+    #
+    # No database modifications.
+    # No notification delivery actions.
+    # --------------------------------------------------------
+
+    get "notifications/operations",
+        to: "notification_operations#index",
+        as: :notification_operations
 
     # --------------------------------------------------------
     # Phase 2D.8.2.13
@@ -271,12 +303,16 @@ Rails.application.routes.draw do
     #
     # Restrict notification IDs to numeric values.
     #
-    # Prevent malformed URLs such as:
+    # Prevent malformed paths such as:
     #
     #   /notifications/reports**
+    #   /notifications/operations**
     #
-    # from reaching NotificationsController#show.
+    # from being interpreted as notification IDs.
     #
+    # IMPORTANT:
+    # This resource must remain after all static
+    # notification routes.
     # --------------------------------------------------------
 
     resources :notifications,
@@ -305,3 +341,4 @@ Rails.application.routes.draw do
       as: :rails_health_check
 
 end
+

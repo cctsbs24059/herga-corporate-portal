@@ -1,0 +1,115 @@
+<% provide(:title, "Notification Operations") %>
+
+<div class="container-fluid py-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+      <h1 class="h3 mb-1"><i class="bi bi-speedometer2 me-2"></i>Notification Operations</h1>
+      <p class="text-muted mb-0">Read-only operational overview of Microsoft Graph submissions and notification processing.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <%= link_to "Notification Centre", infrastructure_notifications_path, class: "btn btn-outline-secondary" %>
+      <%= link_to "Refresh", infrastructure_notification_operations_path(period: @period), class: "btn btn-outline-primary" %>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-body d-flex flex-wrap align-items-center gap-3">
+      <div><strong>Notification service:</strong>
+        <span class="badge <%= @notification_enabled ? 'bg-success' : 'bg-secondary' %>"><%= @notification_enabled ? 'Enabled' : 'Disabled' %></span>
+      </div>
+      <div class="small text-muted">Activated: <%= @notification_activation_time ? @notification_activation_time.utc.strftime('%d %b %Y %H:%M UTC') : 'Not configured' %></div>
+      <div class="ms-auto d-flex flex-wrap gap-2 align-items-center">
+        <span class="small fw-semibold">Reporting period:</span>
+        <% { '24h' => '24 hours', '7d' => '7 days', '30d' => '30 days', '90d' => '90 days' }.each do |value, label| %>
+          <%= link_to label, infrastructure_notification_operations_path(period: value), class: "btn btn-sm #{@period == value ? 'btn-primary' : 'btn-outline-primary'}" %>
+        <% end %>
+      </div>
+    </div>
+    <div class="card-footer small text-muted">Notification metrics: <%= @analytics[:since].utc.strftime('%d %b %Y %H:%M') %> to <%= @analytics[:until_at].utc.strftime('%d %b %Y %H:%M') %> UTC (by record creation time).</div>
+  </div>
+
+  <h2 class="h5 mb-3">Notification activity</h2>
+  <div class="row g-3 mb-4" id="notification-operations-kpis">
+    <% [
+      ['Notifications created', @analytics[:total], 'primary'],
+      ['Graph accepted', @analytics[:statuses].fetch('Accepted', 0), 'success'],
+      ['Unknown outcomes', @analytics[:statuses].fetch('Unknown', 0), 'danger'],
+      ['Pending', @analytics[:statuses].fetch('Pending', 0), 'warning'],
+      ['Sending', @analytics[:statuses].fetch('Sending', 0), 'info'],
+      ['Acceptance share', "#{@analytics[:accepted_percentage]}%", 'primary']
+    ].each do |label, value, colour| %>
+      <div class="col-sm-6 col-xl-4">
+        <div class="card shadow-sm h-100"><div class="card-body">
+          <div class="small text-muted"><%= label %></div>
+          <div class="h3 mb-0 mt-2 text-<%= colour %>"><%= value.is_a?(Numeric) ? number_with_delimiter(value) : value %></div>
+        </div></div>
+      </div>
+    <% end %>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-lg-6">
+      <div class="card shadow-sm h-100" id="notification-operations-jobs">
+        <div class="card-header fw-semibold">Notification-specific job diagnostics</div>
+        <div class="card-body">
+          <% if @job_diagnostics[:available] %>
+            <p class="mb-3">Status: <span class="badge <%= case @job_diagnostics[:status]; when 'Healthy' then 'bg-success'; when 'Degraded' then 'bg-warning text-dark'; else 'bg-danger'; end %>"><%= @job_diagnostics[:status] %></span></p>
+            <dl class="row mb-0">
+              <dt class="col-8">Healthy workers</dt><dd class="col-4 text-end"><%= @job_diagnostics[:healthy_workers] %></dd>
+              <dt class="col-8">Ready jobs</dt><dd class="col-4 text-end"><%= @job_diagnostics[:ready_count] %></dd>
+              <dt class="col-8">Running jobs</dt><dd class="col-4 text-end"><%= @job_diagnostics[:running_count] %></dd>
+              <dt class="col-8">Scheduled jobs</dt><dd class="col-4 text-end"><%= @job_diagnostics[:scheduled_count] %></dd>
+              <dt class="col-8">All recorded failed jobs</dt><dd class="col-4 text-end"><%= @job_diagnostics[:total_failed_count] %></dd>
+              <dt class="col-8">Failed in last 24 hours</dt><dd class="col-4 text-end"><%= @job_diagnostics[:recent_failed_count] %></dd>
+            </dl>
+          <% else %>
+            <div class="alert alert-warning mb-0" role="status">Notification job diagnostics are temporarily unavailable.</div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card shadow-sm h-100" id="notification-operations-queue">
+        <div class="card-header fw-semibold">Overall Solid Queue health</div>
+        <div class="card-body">
+          <% if @queue_health[:available] %>
+            <p class="mb-3">Status: <strong><%= @queue_health[:overall_status] %></strong></p>
+            <dl class="row mb-0">
+              <dt class="col-8">Healthy workers / total</dt><dd class="col-4 text-end"><%= @queue_health[:healthy_worker_count] %> / <%= @queue_health[:worker_count] %></dd>
+              <dt class="col-8">Pending jobs (all queues)</dt><dd class="col-4 text-end"><%= @queue_health[:pending_jobs] %></dd>
+              <dt class="col-8">Running jobs (all queues)</dt><dd class="col-4 text-end"><%= @queue_health[:running_jobs] %></dd>
+              <dt class="col-8">Failed jobs (all queues)</dt><dd class="col-4 text-end"><%= @queue_health[:failed_jobs] %></dd>
+              <dt class="col-8">Reconciliation task registered</dt><dd class="col-4 text-end"><%= @queue_health[:reconciliation_registered] ? 'Yes' : 'No' %></dd>
+            </dl>
+          <% else %>
+            <div class="alert alert-warning mb-0" role="status">Overall queue health is temporarily unavailable.</div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="h5 mb-3">Operational modules</h2>
+  <div class="row g-3 mb-4" id="notification-operations-modules">
+    <% [
+      ['Notification Centre', 'Inspect individual notification records, current status and submission attempts.', infrastructure_notifications_path, 'bi-envelope-paper'],
+      ['Analytics & Trends', 'Review event breakdowns, attempt counts and UTC daily activity.', infrastructure_notification_analytics_path(period: @period), 'bi-bar-chart'],
+      ['Failure Investigation', 'Investigate failed notification background jobs.', infrastructure_notification_job_failures_path, 'bi-exclamation-triangle'],
+      ['CSV Reporting', 'Download administrator-only history, attempts and analytics exports.', infrastructure_notification_reports_path(period: @period), 'bi-file-earmark-spreadsheet']
+    ].each do |name, description, destination, icon| %>
+      <div class="col-md-6 col-xl-3">
+        <div class="card shadow-sm h-100"><div class="card-body d-flex flex-column">
+          <h3 class="h6"><i class="bi <%= icon %> me-2"></i><%= name %></h3>
+          <p class="small text-muted"><%= description %></p>
+          <%= link_to 'Open module', destination, class: 'btn btn-sm btn-outline-primary mt-auto' %>
+        </div></div>
+      </div>
+    <% end %>
+  </div>
+
+  <div class="alert alert-light border small" role="note">
+    <strong>Interpretation:</strong> Accepted means Microsoft Graph accepted the submission; it is not proof of recipient delivery.
+    Unknown is an indeterminate submission outcome, not a confirmed failure. Notification metrics reflect records created in the selected period and their current statuses.
+    Job failure counts are independent of notification status and may span a different reporting window. No automatic resends are performed here.
+  </div>
+</div>
