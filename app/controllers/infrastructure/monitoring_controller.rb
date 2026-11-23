@@ -2,7 +2,7 @@
 
 module Infrastructure
   class MonitoringController < ApplicationController
-    before_action :require_portal_administrator
+    before_action -> { require_portal_permission(:infrastructure_read) }
 
     RECENT_RUN_LIMIT = 10
     RECENT_INCIDENT_LIMIT = 8

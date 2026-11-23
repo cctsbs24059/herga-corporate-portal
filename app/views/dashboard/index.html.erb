@@ -379,7 +379,7 @@
 
                   <% elsif item[:title] == "Infrastructure Servers" %>
 
-                    <% if portal_admin? %>
+                    <% if portal_can?(:infrastructure_read) %>
 
                       <%= link_to "Open Infrastructure Inventory",
                           infrastructure_assets_path,

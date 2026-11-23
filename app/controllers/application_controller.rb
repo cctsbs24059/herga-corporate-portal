@@ -1,234 +1,141 @@
 
-# ============================================================
-# HERGA CORPORATE PORTAL
-# ApplicationController
-# ============================================================
+# frozen_string_literal: true
+
+# HERGA Corporate Portal
+# Phase 2E.1c - Application-Wide RBAC Integration
 #
-# Purpose:
-# This is the base controller for the HERGA Corporate Portal.
+# Responsibilities:
+# - Require Devise authentication.
+# - Verify current Active Directory group membership.
+# - Expose role-aware permission helpers.
+# - Preserve existing administrator checks.
+# - Fail closed when AD access cannot be verified.
 #
-# It provides:
-#   1. Devise authentication for all portal pages.
-#   2. Active Directory authorisation through HERGA.NET.
-#   3. Verification of current AD security-group membership.
-#   4. Automatic sign-out when directory access is denied.
-#   5. Administrator permission checks.
-#
-# Active Directory configuration:
-#
-#   Domain:             HERGA.NET
-#   Domain Controller:  csi.herga.net
-#   Employee Group:     HERGA-Portal-Users
-#   Administrator Group: HERGA-Portal-Admins
-#
-# Authentication is handled by Devise and the custom
-# ActiveDirectoryAuthenticator service.
-#
-# The controller never receives or stores AD passwords.
-#
-# ============================================================
+# Roles are never trusted from browser parameters,
+# session data or the local User.admin field.
 
 class ApplicationController < ActionController::Base
-
-  # ----------------------------------------------------------
-  # 1. BROWSER COMPATIBILITY
-  # ----------------------------------------------------------
-  #
-  # Retain the Rails 8 browser compatibility policy.
-  #
-  # This allows modern browsers supporting current Rails
-  # frontend functionality.
-
   allow_browser versions: :modern
 
-
-  # ----------------------------------------------------------
-  # 2. REQUIRE USER AUTHENTICATION
-  # ----------------------------------------------------------
-  #
-  # Devise checks whether the current request has a valid
-  # authenticated user session.
-  #
-  # Unauthenticated users are redirected to the login page.
-  #
-  # Devise's own SessionsController inherits from
-  # DeviseController, so this callback does not interfere
-  # with displaying the login form.
-
   before_action :authenticate_user!
-
-
-  # ----------------------------------------------------------
-  # 3. VERIFY ACTIVE DIRECTORY ACCESS
-  # ----------------------------------------------------------
-  #
-  # After Devise validates the session, verify that the
-  # employee still belongs to an authorised AD group.
-  #
-  # Accepted groups:
-  #
-  #   HERGA-Portal-Users
-  #   HERGA-Portal-Admins
-  #
-  # The ActiveDirectoryAuthenticator service performs
-  # the membership lookup using LDAPS.
-  #
-  # If AD cannot verify membership, access is denied.
-
   before_action :verify_active_directory_access
 
-
-  # ----------------------------------------------------------
-  # 4. EXPOSE AUTHORISATION HELPERS TO VIEWS
-  # ----------------------------------------------------------
-  #
-  # Allows Rails views and navigation partials to check:
-  #
-  #   portal_admin?
-  #   portal_employee?
-  #
-  # Example:
-  #
-  #   <% if portal_admin? %>
-  #     <%= link_to "Administration",
-  #                 admin_portal_applications_path %>
-  #   <% end %>
-  #
-  # These helpers control what is displayed.
-  # Controller-level checks still enforce permissions.
-
-  helper_method :portal_admin?, :portal_employee?
-
-
-  # ----------------------------------------------------------
-  # 5. PRIVATE SECURITY METHODS
-  # ----------------------------------------------------------
+  helper_method :current_portal_roles,
+                :current_portal_role,
+                :portal_admin?,
+                :portal_employee?,
+                :portal_can?,
+                :portal_has_role?
 
   private
 
-
-  # ----------------------------------------------------------
-  # VERIFY ACTIVE DIRECTORY MEMBERSHIP
-  # ----------------------------------------------------------
+  # Retrieve the current user's live AD roles.
   #
-  # Called automatically before each authenticated request.
-  #
-  # The service returns:
-  #
-  #   :admin     - member of HERGA-Portal-Admins
-  #   :employee  - member of HERGA-Portal-Users
-  #   nil        - no permission or AD lookup failure
-  #
-  # A nil result causes the session to be terminated.
-  #
-  # This is intentionally fail-closed.
-
-  def verify_active_directory_access
-
-    # Devise handles unauthenticated requests.
-    return unless user_signed_in?
-
-    # Retrieve the current user's AD permissions.
-    #
-    # Memoise the result for this request so that
-    # navigation helpers do not repeat LDAP searches.
-    role = current_portal_role
-
-    # Permit the request when AD confirms membership.
-    return if role == :admin || role == :employee
-
-    # Remove the existing Devise session.
-    sign_out(current_user)
-
-    # Redirect to the HERGA login page.
-    redirect_to new_user_session_path,
-                alert: "Your HERGA.NET directory access could not be verified."
-
-  end
-
-
-  # ----------------------------------------------------------
-  # RETRIEVE CURRENT AD ROLE
-  # ----------------------------------------------------------
-  #
-  # Consult Active Directory using the username stored
-  # in the local PostgreSQL User record.
-  #
-  # The AD service uses the configured read-only service
-  # account for membership lookups.
-  #
-  # Results are cached only for the current request.
-  #
-  # A new request triggers a fresh membership check.
-
-  def current_portal_role
-
+  # Cache the result for the current request only.
+  # Do not use ||= because nil must also be cached.
+  def current_portal_roles
     return nil unless user_signed_in?
 
-    @current_portal_role ||=
-      ActiveDirectoryAuthenticator.current_role(
-        current_user.username
-      )
+    unless instance_variable_defined?(:@current_portal_roles)
+      @current_portal_roles =
+        ActiveDirectoryAuthenticator.current_roles(
+          current_user.username
+        )
+    end
 
+    @current_portal_roles
   end
 
-
-  # ----------------------------------------------------------
-  # CHECK ADMINISTRATOR ACCESS
-  # ----------------------------------------------------------
+  # Legacy compatibility for code expecting one role.
   #
-  # Returns true only when Active Directory confirms that
-  # the user belongs to HERGA-Portal-Admins.
-  #
-  # Used by:
-  # - Navigation menus
-  # - Dashboard administration links
-  # - Administrative controllers
+  # The full role array remains authoritative.
+  def current_portal_role
+    roles = current_portal_roles
 
+    return nil if roles.nil? || roles.empty?
+    return :admin if roles.include?(:portal_admin)
+
+    :employee
+  end
+
+  # Check that Active Directory still authorises access.
+  #
+  # A failed lookup or empty role set terminates the
+  # existing session and redirects to the login page.
+  def verify_active_directory_access
+    return unless user_signed_in?
+
+    roles = current_portal_roles
+
+    return if roles.is_a?(Array) &&
+              roles.any? { |role| PortalAuthorization.valid_role?(role) }
+
+    sign_out(current_user)
+
+    redirect_to(
+      new_user_session_path,
+      alert: "Your HERGA.NET directory access could not be verified."
+    )
+  end
+
+  # Check whether the user holds a particular role.
+  def portal_has_role?(role)
+    roles = current_portal_roles
+
+    roles.is_a?(Array) && roles.include?(role)
+  end
+
+  # Preserve existing portal administrator checks.
   def portal_admin?
-
-    current_portal_role == :admin
-
+    portal_has_role?(:portal_admin)
   end
 
-
-  # ----------------------------------------------------------
-  # CHECK EMPLOYEE ACCESS
-  # ----------------------------------------------------------
+  # Preserve the legacy helper name.
   #
-  # Both administrators and employees can access ordinary
-  # corporate portal functionality.
-
+  # This represents access to the ordinary portal,
+  # not necessarily membership of HERGA-Portal-Users.
   def portal_employee?
-
-    [:employee, :admin].include?(current_portal_role)
-
+    portal_can?(:portal_read)
   end
 
+  # Check an application permission using the central
+  # Phase 2E.1a authorisation matrix.
+  def portal_can?(permission)
+    roles = current_portal_roles
 
-  # ----------------------------------------------------------
-  # ENFORCE ADMINISTRATOR ACCESS
-  # ----------------------------------------------------------
-  #
-  # Administrative controllers should call:
-  #
-  #   before_action :require_portal_administrator
-  #
-  # A user without administrator permissions is redirected
-  # to the corporate dashboard.
-  #
-  # This is a server-side security check.
+    return false unless roles.is_a?(Array)
 
+    PortalAuthorization.allowed?(
+      roles: roles,
+      permission: permission
+    )
+  end
+
+  # Require a specific application permission.
+  #
+  # Example:
+  # before_action -> {
+  #   require_portal_permission(:governance_evidence_read)
+  # }
+  def require_portal_permission(permission)
+    return if portal_can?(permission)
+
+    redirect_to(
+      root_path,
+      alert: "You do not have permission to perform this action."
+    )
+  end
+
+  # Backward-compatible administrator enforcement.
+  #
+  # Existing controllers using this method remain
+  # restricted to the HERGA portal administrator role.
   def require_portal_administrator
-
-    # Permit authorised administrators.
     return if portal_admin?
 
-    # Prevent non-administrators from accessing
-    # application management functions.
-    redirect_to root_path,
-                alert: "Administrator access is required."
-
+    redirect_to(
+      root_path,
+      alert: "Administrator access is required."
+    )
   end
-
 end

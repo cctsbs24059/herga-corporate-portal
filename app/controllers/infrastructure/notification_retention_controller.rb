@@ -2,7 +2,7 @@
 
 module Infrastructure
   class NotificationRetentionController < ApplicationController
-    before_action :require_portal_administrator
+    before_action -> { require_portal_permission(:governance_read) }
 
     def index
       @assessment = Infrastructure::NotificationRetentionAssessment.new.call

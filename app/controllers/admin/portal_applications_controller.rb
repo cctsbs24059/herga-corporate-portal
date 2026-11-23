@@ -1,48 +1,83 @@
 
-# Manages the applications registered in HERGA Corporate Portal.
+# frozen_string_literal: true
+
+# ================================================================
+# HERGA CORPORATE PORTAL
+# Application Administration Controller
 #
-# Administration functions include:
-# - Viewing registered applications
-# - Creating applications
-# - Editing application information
-# - Activating and deactivating applications
-# - Removing applications
+# Security:
+# - Devise authentication inherited from ApplicationController
+# - Active Directory access verification inherited
+# - Live AD-backed RBAC permission enforcement
+# - Fail-closed authorization
 #
-# The controller is intentionally separate from the
-# employee-facing PortalApplicationsController.
+# Required permission:
+#   :portal_applications_manage
+#
+# Supported actions:
+# - List registered applications
+# - Create applications
+# - Edit application information
+# - Activate/deactivate applications
+# - Remove applications
+#
+# This controller is separate from the employee-facing
+# PortalApplicationsController.
+# ================================================================
 
 module Admin
   class PortalApplicationsController < ApplicationController
 
-    # SECURITY:
-    # Do not expose this controller without authentication
-    # and administrator authorisation.
-    #
-    # Authentication will be configured before enabling
-    # the administration routes.
+    # ============================================================
+    # AUTHORIZATION
+    # ============================================================
 
-    # Retrieve the selected application before actions
-    # that require an existing database record.
+    # Require the application management permission for ALL
+    # controller actions, including actions added in the future.
+    #
+    # The permission is resolved through the authenticated user's
+    # current Active Directory roles.
+    #
+    # Do not use current_user.admin? for authorization.
+
+    before_action -> {
+      require_portal_permission(:portal_applications_manage)
+    }
+
+    # ============================================================
+    # RECORD LOOKUP
+    # ============================================================
+
+    # Retrieve an existing application only after authorization.
+
     before_action :set_portal_application,
-                  only: [:edit, :update, :destroy]
+                  only: %i[edit update destroy]
 
+    # ============================================================
+    # INDEX
     # GET /admin/portal_applications
-    #
-    # Display all applications, including inactive ones.
+    # ============================================================
+
+    # Display all registered applications, including inactive ones.
+
     def index
       @portal_applications = PortalApplication.ordered
     end
 
+    # ============================================================
+    # NEW
     # GET /admin/portal_applications/new
-    #
-    # Prepare an empty application record.
+    # ============================================================
+
     def new
       @portal_application = PortalApplication.new
     end
 
+    # ============================================================
+    # CREATE
     # POST /admin/portal_applications
-    #
-    # Create an application using submitted form values.
+    # ============================================================
+
     def create
       @portal_application =
         PortalApplication.new(portal_application_params)
@@ -55,15 +90,20 @@ module Admin
       end
     end
 
+    # ============================================================
+    # EDIT
     # GET /admin/portal_applications/:id/edit
-    #
-    # Display the edit form.
+    # ============================================================
+
     def edit
+      # The application is loaded by set_portal_application.
     end
 
-    # PATCH /admin/portal_applications/:id
-    #
-    # Update an existing application.
+    # ============================================================
+    # UPDATE
+    # PATCH/PUT /admin/portal_applications/:id
+    # ============================================================
+
     def update
       if @portal_application.update(portal_application_params)
         redirect_to admin_portal_applications_path,
@@ -73,9 +113,11 @@ module Admin
       end
     end
 
+    # ============================================================
+    # DESTROY
     # DELETE /admin/portal_applications/:id
-    #
-    # Remove an application from the directory.
+    # ============================================================
+
     def destroy
       @portal_application.destroy!
 
@@ -84,18 +126,28 @@ module Admin
                   status: :see_other
     end
 
+    # ============================================================
+    # PRIVATE METHODS
+    # ============================================================
+
     private
 
+    # ------------------------------------------------------------
     # Find the application requested in the URL.
+    # ------------------------------------------------------------
+
     def set_portal_application
       @portal_application =
         PortalApplication.find(params[:id])
     end
 
-    # Allow only approved application attributes.
+    # ------------------------------------------------------------
+    # Strong Parameters
     #
-    # This prevents arbitrary database fields from being
-    # modified through the submitted form.
+    # Only explicitly approved application attributes can be
+    # submitted through the administration interface.
+    # ------------------------------------------------------------
+
     def portal_application_params
       params.require(:portal_application).permit(
         :name,

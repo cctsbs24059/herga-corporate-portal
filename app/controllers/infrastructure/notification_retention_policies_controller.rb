@@ -2,7 +2,11 @@
 
 module Infrastructure
   class NotificationRetentionPoliciesController < ApplicationController
-    before_action :require_portal_administrator
+    before_action -> { require_portal_permission(:governance_read) },
+                only: %i[index show]
+
+    before_action -> { require_portal_permission(:governance_manage) },
+                only: %i[new create approve suspend]
     before_action :load_policy, only: %i[show approve suspend]
 
     def index

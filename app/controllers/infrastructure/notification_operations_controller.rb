@@ -2,7 +2,7 @@
 
 module Infrastructure
   class NotificationOperationsController < ApplicationController
-    before_action :require_portal_administrator
+    before_action -> { require_portal_permission(:governance_read) }
 
     def index
       requested_period = params[:period].to_s

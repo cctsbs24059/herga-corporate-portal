@@ -1,0 +1,23 @@
+
+<% content_for :title, "Add Application | HERGA" %>
+
+<div class="container py-4">
+
+  <div class="mb-4">
+    <h2 class="fw-bold">
+      <i class="bi bi-plus-circle me-2"></i>
+      Register Corporate Application
+    </h2>
+    <p class="text-muted">
+      Add an application to the HERGA Corporate Portal directory.
+    </p>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+      <%= render "form",
+                 portal_application: @portal_application %>
+    </div>
+  </div>
+
+</div>

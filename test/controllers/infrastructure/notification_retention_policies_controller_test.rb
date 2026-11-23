@@ -19,7 +19,7 @@ module Infrastructure
 
     test "employee cannot create policy" do
       sign_in @user
-      ActiveDirectoryAuthenticator.stub(:current_role, :employee) do
+      ActiveDirectoryAuthenticator.stub(:current_roles, [:employee]) do
         assert_no_difference "Infrastructure::NotificationRetentionPolicy.count" do
           post infrastructure_notification_retention_policies_path,
                params: { policy: { name: "Denied", reference: "DEN-#{SecureRandom.hex(4)}", retention_days: 365 } }
@@ -30,7 +30,7 @@ module Infrastructure
 
     test "admin creates draft and audit event" do
       sign_in @user
-      ActiveDirectoryAuthenticator.stub(:current_role, :admin) do
+      ActiveDirectoryAuthenticator.stub(:current_roles, [:portal_admin]) do
         assert_difference "Infrastructure::NotificationRetentionPolicy.count", 1 do
           assert_difference "Infrastructure::NotificationRetentionEvent.count", 1 do
             post infrastructure_notification_retention_policies_path,
@@ -44,7 +44,7 @@ module Infrastructure
 
     test "admin can view policy listing" do
       sign_in @user
-      ActiveDirectoryAuthenticator.stub(:current_role, :admin) do
+      ActiveDirectoryAuthenticator.stub(:current_roles, [:portal_admin]) do
         get infrastructure_notification_retention_policies_path
         assert_response :success
         assert_select "#retention-policies"

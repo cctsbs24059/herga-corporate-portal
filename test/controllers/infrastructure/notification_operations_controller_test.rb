@@ -27,7 +27,7 @@ module Infrastructure
     test "employee cannot access operations dashboard" do
       sign_in @user
 
-      ActiveDirectoryAuthenticator.stub(:current_role, :employee) do
+      ActiveDirectoryAuthenticator.stub(:current_roles, [:employee]) do
         get infrastructure_notification_operations_path
 
         assert_redirected_to root_path
@@ -136,9 +136,7 @@ module Infrastructure
     def as_admin
       sign_in @user
 
-      ActiveDirectoryAuthenticator.stub(
-        :current_role,
-        :admin
+      ActiveDirectoryAuthenticator.stub(:current_roles, [:portal_admin]
       ) do
         yield
       end

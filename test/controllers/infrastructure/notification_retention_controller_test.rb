@@ -22,7 +22,7 @@ module Infrastructure
 
     test "employee is denied access" do
       sign_in @user
-      ActiveDirectoryAuthenticator.stub(:current_role, :employee) do
+      ActiveDirectoryAuthenticator.stub(:current_roles, [:employee]) do
         get infrastructure_notification_retention_path
         assert_redirected_to root_path
       end
@@ -53,7 +53,7 @@ module Infrastructure
 
     def as_admin
       sign_in @user
-      ActiveDirectoryAuthenticator.stub(:current_role, :admin) { yield }
+      ActiveDirectoryAuthenticator.stub(:current_roles, [:portal_admin]) { yield }
     end
   end
 end

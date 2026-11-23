@@ -27,7 +27,7 @@ module Infrastructure
 
     test 'employee cannot access failure history' do
       sign_in @user
-      ActiveDirectoryAuthenticator.stub(:current_role, :employee) do
+      ActiveDirectoryAuthenticator.stub(:current_roles, [:employee]) do
         get infrastructure_notification_job_failures_path
         assert_redirected_to root_path
       end
@@ -35,7 +35,7 @@ module Infrastructure
 
     test 'employee cannot access failure details' do
       sign_in @user
-      ActiveDirectoryAuthenticator.stub(:current_role, :employee) do
+      ActiveDirectoryAuthenticator.stub(:current_roles, [:employee]) do
         get infrastructure_notification_job_failure_path(1)
         assert_redirected_to root_path
       end
@@ -43,7 +43,7 @@ module Infrastructure
 
     test 'administrator can access failure history' do
       sign_in @user
-      ActiveDirectoryAuthenticator.stub(:current_role, :admin) do
+      ActiveDirectoryAuthenticator.stub(:current_roles, [:portal_admin]) do
         get infrastructure_notification_job_failures_path
         assert_response :success
         assert_select 'h1', text: /Notification Failure Investigation/

@@ -4,7 +4,7 @@ require "csv"
 
 module Infrastructure
   class AvailabilityController < ApplicationController
-    before_action :require_portal_administrator
+    before_action -> { require_portal_permission(:infrastructure_read) }
 
     PERIODS = { "1" => 1, "7" => 7, "30" => 30 }.freeze
     THRESHOLDS = { "99" => 99.0, "95" => 95.0, "90" => 90.0 }.freeze

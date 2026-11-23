@@ -1,22 +1,25 @@
 
-# Handles HERGA Active Directory sign-in and sign-out.
+# frozen_string_literal: true
+
+# HERGA Corporate Portal
+# Phase 2E.1c - Active Directory RBAC Login
 #
-# Devise manages the Rails session.
-# Active Directory validates the submitted credentials.
+# Devise manages the authenticated Rails session.
+# Active Directory validates credentials and group membership.
+#
+# The local User record stores identity attributes only.
+# Live authorisation always uses Active Directory.
 
 module Users
   class SessionsController < Devise::SessionsController
-    # Display the sign-in form.
     def new
       super
     end
 
-    # Authenticate against HERGA.NET.
     def create
       login = params.dig(:user, :username).to_s
       password = params.dig(:user, :password).to_s
 
-      # Validate credentials and AD group membership.
       identity = ActiveDirectoryAuthenticator.authenticate(
         login,
         password
@@ -27,37 +30,53 @@ module Users
           "Invalid credentials or insufficient access."
 
         self.resource = User.new
+
         return render :new, status: :unprocessable_entity
       end
 
-      # Create or update the local profile.
+      # Defence in depth: require a recognised RBAC role.
       #
-      # The AD username is the account's stable lookup key
-      # within this single-domain implementation.
+      # The authenticator already enforces this, but
+      # the controller independently checks the result.
+      roles = identity.roles
+
+      unless roles.is_a?(Array) &&
+             roles.any? { |role| PortalAuthorization.valid_role?(role) }
+
+        flash.now[:alert] =
+          "Your account does not have portal access."
+
+        self.resource = User.new
+
+        return render :new, status: :unprocessable_entity
+      end
+
       user = User.find_or_initialize_by(
         username: identity.username
       )
 
+      # The admin column is retained for compatibility.
+      # It must not be used for live authorisation.
       user.assign_attributes(
         email: identity.email,
         display_name: identity.display_name,
         ad_dn: identity.dn,
-        admin: identity.admin
+        admin: roles.include?(:portal_admin)
       )
 
       user.save!
 
-      # Regenerate the session identifier before sign-in.
+      # Regenerate the Rails session before signing in.
       reset_session
 
-      # Sign in using Devise/Warden.
       sign_in(:user, user)
 
-      redirect_to root_path,
-                  notice: "Welcome to HERGA Corporate Portal."
+      redirect_to(
+        root_path,
+        notice: "Welcome to HERGA Corporate Portal."
+      )
     end
 
-    # Devise handles session termination.
     def destroy
       super
     end

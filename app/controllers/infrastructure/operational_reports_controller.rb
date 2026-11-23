@@ -4,7 +4,7 @@ require "csv"
 
 module Infrastructure
   class OperationalReportsController < ApplicationController
-    before_action :require_portal_administrator
+    before_action -> { require_portal_permission(:infrastructure_read) }
 
     def index
       @report = Infrastructure::OperationalReport.new(params: params).call

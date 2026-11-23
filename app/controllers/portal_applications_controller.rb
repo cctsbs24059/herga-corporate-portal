@@ -8,7 +8,7 @@ class PortalApplicationsController < ApplicationController
 
 
   # Verify administrator membership before every action.
-  before_action :require_portal_administrator
+  before_action -> { require_portal_permission(:portal_read) }
 
 
 
@@ -25,19 +25,6 @@ class PortalApplicationsController < ApplicationController
                              .active_apps
                              .ordered
 
-  end
-
-  private
-
-  def require_portal_administrator
-    role = ActiveDirectoryAuthenticator.current_role(
-      current_user.username
-    )
-
-    return if role == :admin
-
-    redirect_to root_path,
-                alert: "Administrator access is required."
   end
 
 end

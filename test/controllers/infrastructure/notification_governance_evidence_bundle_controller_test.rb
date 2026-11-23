@@ -17,7 +17,7 @@ module Infrastructure
 
     test "employee cannot download evidence" do
       sign_in @user
-      ActiveDirectoryAuthenticator.stub(:current_role, :employee) do
+      ActiveDirectoryAuthenticator.stub(:current_roles, [:employee]) do
         get infrastructure_notification_governance_evidence_bundle_path
         assert_redirected_to root_path
       end
@@ -25,7 +25,7 @@ module Infrastructure
 
     test "administrator can download verifiable evidence" do
       sign_in @user
-      ActiveDirectoryAuthenticator.stub(:current_role, :admin) do
+      ActiveDirectoryAuthenticator.stub(:current_roles, [:portal_admin]) do
         get infrastructure_notification_governance_evidence_bundle_path
         assert_response :success
         assert_equal "application/gzip", response.media_type

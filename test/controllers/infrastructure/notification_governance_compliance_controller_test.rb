@@ -20,7 +20,7 @@ module Infrastructure
 
     test "employee cannot export compliance evidence" do
       sign_in @user
-      ActiveDirectoryAuthenticator.stub(:current_role, :employee) do
+      ActiveDirectoryAuthenticator.stub(:current_roles, [:employee]) do
         get infrastructure_notification_governance_compliance_export_path(section: "summary")
         assert_redirected_to root_path
       end
@@ -28,7 +28,7 @@ module Infrastructure
 
     test "administrator can view compliance dashboard" do
       sign_in @user
-      ActiveDirectoryAuthenticator.stub(:current_role, :admin) do
+      ActiveDirectoryAuthenticator.stub(:current_roles, [:portal_admin]) do
         get infrastructure_notification_governance_compliance_path
         assert_response :success
         assert_select "#notification-governance-compliance"
@@ -37,7 +37,7 @@ module Infrastructure
 
     test "administrator can export summary CSV" do
       sign_in @user
-      ActiveDirectoryAuthenticator.stub(:current_role, :admin) do
+      ActiveDirectoryAuthenticator.stub(:current_roles, [:portal_admin]) do
         get infrastructure_notification_governance_compliance_export_path(section: "summary")
         assert_response :success
         assert_includes response.media_type, "text/csv"
@@ -48,7 +48,7 @@ module Infrastructure
 
     test "invalid export section is rejected" do
       sign_in @user
-      ActiveDirectoryAuthenticator.stub(:current_role, :admin) do
+      ActiveDirectoryAuthenticator.stub(:current_roles, [:portal_admin]) do
         get infrastructure_notification_governance_compliance_export_path(section: "unknown")
         assert_response :bad_request
       end

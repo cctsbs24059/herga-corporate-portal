@@ -50,8 +50,8 @@ module Infrastructure
       sign_in @user
 
       ActiveDirectoryAuthenticator.stub(
-        :current_role,
-        :employee
+        :current_roles,
+        [:employee]
       ) do
         get infrastructure_notification_reports_path
 
@@ -63,8 +63,8 @@ module Infrastructure
       sign_in @user
 
       ActiveDirectoryAuthenticator.stub(
-        :current_role,
-        :employee
+        :current_roles,
+        [:employee]
       ) do
         get infrastructure_notification_reports_path(
           format: :csv,
@@ -195,11 +195,12 @@ module Infrastructure
       sign_in @user
 
       ActiveDirectoryAuthenticator.stub(
-        :current_role,
-        :admin
+        :current_roles,
+        [:portal_admin]
       ) do
         yield
       end
     end
   end
 end
+

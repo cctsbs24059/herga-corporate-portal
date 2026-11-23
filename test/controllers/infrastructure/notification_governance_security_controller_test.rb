@@ -19,7 +19,7 @@ module Infrastructure
 
     test "employee cannot access security dashboard" do
       sign_in @user
-      ActiveDirectoryAuthenticator.stub(:current_role, :employee) do
+      ActiveDirectoryAuthenticator.stub(:current_roles, [:employee]) do
         get infrastructure_notification_governance_security_path
         assert_redirected_to root_path
       end
@@ -27,7 +27,7 @@ module Infrastructure
 
     test "administrator can view read only security dashboard" do
       sign_in @user
-      ActiveDirectoryAuthenticator.stub(:current_role, :admin) do
+      ActiveDirectoryAuthenticator.stub(:current_roles, [:portal_admin]) do
         get infrastructure_notification_governance_security_path
         assert_response :success
         assert_select "#notification-governance-security"

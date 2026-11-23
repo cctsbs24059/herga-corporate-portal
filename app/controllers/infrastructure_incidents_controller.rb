@@ -8,7 +8,11 @@
 
 class InfrastructureIncidentsController < ApplicationController
   before_action :authenticate_user!
-  before_action :require_portal_administrator
+  before_action -> { require_portal_permission(:infrastructure_read) },
+                only: %i[index show]
+
+  before_action -> { require_portal_permission(:infrastructure_manage) },
+                only: %i[acknowledge assign resolve]
 
   before_action :set_incident, only: %i[
     show acknowledge assign resolve

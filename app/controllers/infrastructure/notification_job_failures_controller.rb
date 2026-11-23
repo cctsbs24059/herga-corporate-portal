@@ -2,7 +2,7 @@
 
 module Infrastructure
   class NotificationJobFailuresController < ApplicationController
-    before_action :require_portal_administrator
+    before_action -> { require_portal_permission(:governance_read) }
 
     def index
       @job_class = params[:job_class].to_s

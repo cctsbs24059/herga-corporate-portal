@@ -22,7 +22,7 @@
 
 module Infrastructure
   class NotificationsController < ApplicationController
-    before_action :require_portal_administrator
+    before_action -> { require_portal_permission(:governance_read) }
     before_action :set_notification, only: :show
 
     PER_PAGE = 25

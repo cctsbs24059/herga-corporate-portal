@@ -4,7 +4,7 @@ require "csv"
 
 module Infrastructure
   class AnalyticsController < ApplicationController
-    before_action :require_portal_administrator
+    before_action -> { require_portal_permission(:infrastructure_read) }
 
     def index
       @analytics = Infrastructure::MonitoringAnalytics.new(params: params).call

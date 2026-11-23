@@ -22,7 +22,7 @@ module Infrastructure
     private
 
     def with_role(role)
-      ActiveDirectoryAuthenticator.stub(:current_role, role) do
+      ActiveDirectoryAuthenticator.stub(:current_roles, (role == :admin ? [:portal_admin] : (role == :employee ? [:employee] : nil))) do
         yield
       end
     end
