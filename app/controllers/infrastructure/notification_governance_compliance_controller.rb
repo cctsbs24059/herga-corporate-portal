@@ -22,5 +22,15 @@ module Infrastructure
                 disposition: "attachment",
                 filename: "herga-governance-#{section}-#{Time.current.utc.strftime('%Y%m%dT%H%M%SZ')}.csv"
     end
+    # Download a read-only CSV archive with a checksum manifest.
+    def evidence_bundle
+      data = NotificationGovernanceEvidenceBundle.new.build
+      send_data data,
+                type: "application/gzip",
+                disposition: "attachment",
+                filename: "herga-governance-evidence-#{Time.current.utc.strftime('%Y%m%dT%H%M%SZ')}.tar.gz"
+    rescue NotificationGovernanceEvidenceBundle::BundleTooLarge
+      render plain: "Governance evidence exceeds the maximum bundle size.", status: :unprocessable_entity
+    end
   end
 end

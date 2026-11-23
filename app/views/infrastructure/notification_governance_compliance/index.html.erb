@@ -1,58 +1,435 @@
+
 <% provide(:title, "Governance Compliance Reporting") %>
 
 <div class="container-fluid py-4" id="notification-governance-compliance">
-  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+
+  <!-- ===================================================== -->
+  <!-- PAGE HEADER                                           -->
+  <!-- ===================================================== -->
+
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+
     <div>
-      <h1 class="h3 mb-1"><i class="bi bi-clipboard-data me-2" aria-hidden="true"></i>Governance Compliance Reporting</h1>
-      <p class="text-muted mb-0">Read-only evidence exports for notification retention governance.</p>
+      <h1 class="h3 mb-1">
+        <i class="bi bi-clipboard-data me-2" aria-hidden="true"></i>
+        Governance Compliance Reporting
+      </h1>
+
+      <p class="text-muted mb-0">
+        Read-only compliance reporting, governance audit evidence,
+        and integrity-verifiable evidence exports.
+      </p>
     </div>
-    <%= link_to "Security assessment", infrastructure_notification_governance_security_path, class: "btn btn-outline-secondary" %>
+
+    <div class="d-flex flex-wrap align-items-center gap-2">
+
+      <%= link_to infrastructure_notification_governance_security_path,
+                  class: "btn btn-outline-secondary" do %>
+        <i class="bi bi-shield-check me-1" aria-hidden="true"></i>
+        Security Assessment
+      <% end %>
+
+      <%= link_to infrastructure_notification_governance_evidence_bundle_path,
+                  class: "btn btn-primary",
+                  aria: {
+                    label: "Download complete governance evidence bundle"
+                  } do %>
+        <i class="bi bi-file-earmark-zip me-1" aria-hidden="true"></i>
+        Download Evidence Bundle
+      <% end %>
+
+    </div>
+
   </div>
 
-  <div class="alert alert-info">
-    Exports are point-in-time database extracts, not cryptographically signed evidence or proof of regulatory compliance.
-    Each detailed CSV includes up to <%= Infrastructure::NotificationGovernanceComplianceReport::MAX_ROWS_PER_SECTION %> rows, ordered by ID.
-    Exports may contain administrator identifiers and legal-hold justifications; store them securely.
-    Notification disposal remains disabled.
+  <!-- ===================================================== -->
+  <!-- GOVERNANCE INFORMATION NOTICE                         -->
+  <!-- ===================================================== -->
+
+  <div class="alert alert-info d-flex align-items-start gap-3 mb-4"
+       role="note">
+
+    <i class="bi bi-info-circle fs-4" aria-hidden="true"></i>
+
+    <div>
+
+      <div class="fw-semibold mb-1">
+        Governance Evidence and Retention Controls
+      </div>
+
+      <p class="mb-2">
+        Exports represent point-in-time database extracts and do not
+        independently establish regulatory compliance.
+      </p>
+
+      <p class="mb-2">
+        Each detailed CSV includes up to
+        <strong>
+          <%= Infrastructure::NotificationGovernanceComplianceReport::MAX_ROWS_PER_SECTION %>
+        </strong>
+        records, ordered by ID.
+        Exports may be incomplete when the database contains more
+        records than the configured export limit.
+      </p>
+
+      <p class="mb-2">
+        Evidence bundles include a JSON manifest containing SHA-256
+        checksums and record-count information, allowing the included
+        files to be checked for consistency with that manifest.
+        These checksums are not cryptographic signatures and do not
+        authenticate the manifest itself.
+      </p>
+
+      <p class="mb-0">
+        <i class="bi bi-lock me-1" aria-hidden="true"></i>
+        Evidence may contain administrator identifiers and legal-hold
+        justifications. Store exported files securely.
+        <strong>Notification disposal remains disabled.</strong>
+      </p>
+
+    </div>
+
   </div>
+
+  <!-- ===================================================== -->
+  <!-- COMPLIANCE SNAPSHOT                                   -->
+  <!-- ===================================================== -->
 
   <div class="card shadow-sm mb-4">
-    <div class="card-header fw-semibold">Compliance snapshot</div>
-    <div class="card-body table-responsive">
-      <table class="table table-striped align-middle mb-0">
-        <tbody>
-          <% @assessment.each do |metric, value| %>
-            <tr>
-              <th scope="row"><%= metric.to_s.humanize %></th>
-              <td><%= value.is_a?(Time) ? value.utc.strftime("%Y-%m-%d %H:%M:%S UTC") : value.to_s %></td>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
+
+    <div class="card-header bg-body-tertiary d-flex align-items-center gap-2">
+
+      <i class="bi bi-graph-up-arrow" aria-hidden="true"></i>
+
+      <span class="fw-semibold">
+        Compliance Snapshot
+      </span>
+
     </div>
+
+    <div class="card-body table-responsive">
+
+      <table class="table table-striped align-middle mb-0">
+
+        <tbody>
+
+          <% @assessment.each do |metric, value| %>
+
+            <tr>
+
+              <th scope="row" class="w-50">
+                <%= metric.to_s.humanize %>
+              </th>
+
+              <td>
+                <%= value.is_a?(Time) ?
+                    value.utc.strftime("%Y-%m-%d %H:%M:%S UTC") :
+                    value.to_s %>
+              </td>
+
+            </tr>
+
+          <% end %>
+
+        </tbody>
+
+      </table>
+
+    </div>
+
   </div>
 
-  <div class="card shadow-sm">
-    <div class="card-header fw-semibold">Download governance evidence (CSV)</div>
-    <div class="card-body table-responsive">
-      <table class="table align-middle mb-0">
-        <thead><tr><th>Evidence set</th><th>Records in database</th><th>Download</th></tr></thead>
-        <tbody>
-          <% Infrastructure::NotificationGovernanceComplianceReport::SECTIONS.each do |section| %>
-            <tr>
-              <td><%= section.humanize %></td>
-              <td><%= section == "summary" ? "Assessment" : @section_counts.fetch(section) %></td>
-              <td>
-                <%= link_to "Export CSV", infrastructure_notification_governance_compliance_export_path(section: section),
-                            class: "btn btn-sm btn-outline-primary", aria: { label: "Export #{section.humanize} CSV" } %>
-                <% if section != "summary" && @section_counts.fetch(section) > Infrastructure::NotificationGovernanceComplianceReport::MAX_ROWS_PER_SECTION %>
-                  <span class="text-warning small ms-2">Limited export — not all records included</span>
-                <% end %>
-              </td>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
+  <!-- ===================================================== -->
+  <!-- EVIDENCE BUNDLE DOWNLOAD                              -->
+  <!-- ===================================================== -->
+
+  <div class="card shadow-sm mb-4">
+
+    <div class="card-header bg-body-tertiary d-flex align-items-center gap-2">
+
+      <i class="bi bi-file-earmark-zip" aria-hidden="true"></i>
+
+      <span class="fw-semibold">
+        Governance Audit Evidence Bundle
+      </span>
+
     </div>
+
+    <div class="card-body">
+
+      <div class="row g-4 align-items-center">
+
+        <div class="col-lg-8">
+
+          <h2 class="h5 mb-2">
+            Download Consolidated Governance Evidence
+          </h2>
+
+          <p class="text-muted mb-3">
+            Generate a consolidated archive containing the governance
+            compliance evidence sets and an accompanying integrity
+            manifest.
+          </p>
+
+          <ul class="mb-3">
+
+            <li>Governance compliance summary</li>
+
+            <li>Retention policy records</li>
+
+            <li>Retention policy audit events</li>
+
+            <li>Legal-hold lifecycle records</li>
+
+            <li>Legal-hold audit events</li>
+
+            <li>JSON manifest with SHA-256 checksums</li>
+
+          </ul>
+
+          <div class="small text-muted">
+            <i class="bi bi-shield-lock me-1" aria-hidden="true"></i>
+            Read-only export. No retention policy, legal hold,
+            or notification record will be modified.
+          </div>
+
+        </div>
+
+        <div class="col-lg-4">
+
+          <div class="border rounded-3 p-4 text-center">
+
+            <i class="bi bi-file-earmark-zip display-5 text-primary"
+               aria-hidden="true"></i>
+
+            <h3 class="h6 mt-3 mb-2">
+              Complete Evidence Archive
+            </h3>
+
+            <p class="small text-muted mb-3">
+              Compressed TAR archive with CSV evidence
+              and JSON integrity manifest.
+            </p>
+
+            <%= link_to infrastructure_notification_governance_evidence_bundle_path,
+                        class: "btn btn-primary w-100",
+                        aria: {
+                          label: "Download governance evidence TAR GZ archive"
+                        } do %>
+
+              <i class="bi bi-download me-2" aria-hidden="true"></i>
+              Download .tar.gz
+
+            <% end %>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
   </div>
+
+  <!-- ===================================================== -->
+  <!-- INDIVIDUAL CSV EXPORTS                                -->
+  <!-- ===================================================== -->
+
+  <div class="card shadow-sm mb-4">
+
+    <div class="card-header bg-body-tertiary d-flex align-items-center gap-2">
+
+      <i class="bi bi-filetype-csv" aria-hidden="true"></i>
+
+      <span class="fw-semibold">
+        Individual Governance Evidence Exports
+      </span>
+
+    </div>
+
+    <div class="card-body">
+
+      <p class="text-muted mb-3">
+        Download individual governance evidence sets in CSV format.
+        Record counts below represent the database totals and may
+        exceed the number of rows included in an export.
+      </p>
+
+      <div class="table-responsive">
+
+        <table class="table table-hover align-middle mb-0">
+
+          <thead class="table-light">
+
+            <tr>
+              <th scope="col">
+                Evidence Set
+              </th>
+
+              <th scope="col">
+                Records in Database
+              </th>
+
+              <th scope="col">
+                Export Status
+              </th>
+
+              <th scope="col" class="text-end">
+                Download
+              </th>
+            </tr>
+
+          </thead>
+
+          <tbody>
+
+            <% Infrastructure::NotificationGovernanceComplianceReport::SECTIONS.each do |section| %>
+
+              <% is_summary = section == "summary" %>
+
+              <% record_count = is_summary ?
+                  nil :
+                  @section_counts.fetch(section) %>
+
+              <% is_limited = !is_summary &&
+                  record_count > Infrastructure::NotificationGovernanceComplianceReport::MAX_ROWS_PER_SECTION %>
+
+              <tr>
+
+                <td>
+
+                  <div class="fw-semibold">
+                    <%= section.humanize %>
+                  </div>
+
+                  <div class="small text-muted">
+                    <%= is_summary ?
+                        "Consolidated governance assessment" :
+                        "Governance audit evidence records" %>
+                  </div>
+
+                </td>
+
+                <td>
+
+                  <% if is_summary %>
+
+                    <span class="text-muted">
+                      Assessment
+                    </span>
+
+                  <% else %>
+
+                    <%= number_with_delimiter(record_count) %>
+
+                  <% end %>
+
+                </td>
+
+                <td>
+
+                  <% if is_limited %>
+
+                    <span class="badge text-bg-warning">
+                      <i class="bi bi-exclamation-triangle me-1"
+                         aria-hidden="true"></i>
+                      Limited Export
+                    </span>
+
+                    <div class="small text-muted mt-1">
+                      Not all records included
+                    </div>
+
+                  <% else %>
+
+                    <span class="badge text-bg-success">
+                      <i class="bi bi-check-circle me-1"
+                         aria-hidden="true"></i>
+                      Within Limit
+                    </span>
+
+                  <% end %>
+
+                </td>
+
+                <td class="text-end">
+
+                  <%= link_to infrastructure_notification_governance_compliance_export_path(
+                                section: section
+                              ),
+                              class: "btn btn-sm btn-outline-primary",
+                              aria: {
+                                label: "Export #{section.humanize} CSV"
+                              } do %>
+
+                    <i class="bi bi-download me-1" aria-hidden="true"></i>
+                    Export CSV
+
+                  <% end %>
+
+                </td>
+
+              </tr>
+
+            <% end %>
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ===================================================== -->
+  <!-- EVIDENCE INTEGRITY INFORMATION                        -->
+  <!-- ===================================================== -->
+
+  <div class="card shadow-sm">
+
+    <div class="card-header bg-body-tertiary d-flex align-items-center gap-2">
+
+      <i class="bi bi-shield-check" aria-hidden="true"></i>
+
+      <span class="fw-semibold">
+        Evidence Integrity Verification
+      </span>
+
+    </div>
+
+    <div class="card-body">
+
+      <p class="mb-3">
+        The evidence bundle includes an integrity manifest.
+        After downloading the archive, an administrator can verify
+        the included evidence using the HERGA Rails verification task.
+      </p>
+
+      <div class="bg-body-tertiary border rounded-3 p-3 mb-3">
+
+        <div class="small fw-semibold mb-2">
+          Verification command
+        </div>
+
+        <code class="d-block text-break">
+          FILE=/absolute/path/to/evidence.tar.gz bin/rails herga:governance:verify_evidence
+        </code>
+
+      </div>
+
+      <p class="small text-muted mb-0">
+        Verification compares evidence contents against the
+        accompanying manifest, including recorded checksums
+        and record counts. Independent authentication of the
+        manifest would require an additional trusted signing
+        or checksum mechanism.
+      </p>
+
+    </div>
+
+  </div>
+
 </div>

@@ -234,28 +234,49 @@ Rails.application.routes.draw do
         to: "notification_governance_security#index",
         as: :notification_governance_security
 
-    # --------------------------------------------------------
-    # Phase 2D.8.4.3.11.2d
-    # Governance Compliance Reporting & Evidence Export
+    # ========================================================
+    # Phase 2D.8.4.3.11.2d - 2D.8.4.3.11.2e
+    # GOVERNANCE COMPLIANCE REPORTING & EVIDENCE INTEGRITY
+    # ========================================================
     #
-    # Administrator-only compliance dashboard.
+    # Administrator-only access enforced by controller.
     #
     # Includes:
-    #   - Consolidated governance compliance summary
+    #   - Consolidated governance compliance dashboard
     #   - Retention policy evidence
     #   - Policy audit events
     #   - Legal hold lifecycle evidence
     #   - Legal hold audit events
-    #   - CSV evidence exports
+    #   - Individual CSV exports
+    #   - Consolidated TAR.GZ evidence archive
+    #   - JSON integrity manifest with SHA-256 checksums
     #
     # Read-only reporting functionality.
-    # Does not modify governance records.
-    # Does not enable notification disposal.
+    # No automatic deletion or archival.
+    # ========================================================
+
+    # --------------------------------------------------------
+    # Governance Compliance Dashboard
     # --------------------------------------------------------
 
     get "notifications/governance_compliance",
         to: "notification_governance_compliance#index",
         as: :notification_governance_compliance
+
+    # --------------------------------------------------------
+    # Phase 2D.8.4.3.11.2e
+    # Consolidated Governance Evidence Bundle
+    #
+    # Must precede the dynamic CSV export route.
+    # --------------------------------------------------------
+
+    get "notifications/governance_compliance/evidence_bundle",
+        to: "notification_governance_compliance#evidence_bundle",
+        as: :notification_governance_evidence_bundle
+
+    # --------------------------------------------------------
+    # Individual Governance Evidence CSV Export
+    # --------------------------------------------------------
 
     get "notifications/governance_compliance/export/:section",
         to: "notification_governance_compliance#export",
