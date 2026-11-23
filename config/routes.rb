@@ -234,6 +234,33 @@ Rails.application.routes.draw do
         to: "notification_governance_security#index",
         as: :notification_governance_security
 
+    # --------------------------------------------------------
+    # Phase 2D.8.4.3.11.2d
+    # Governance Compliance Reporting & Evidence Export
+    #
+    # Administrator-only compliance dashboard.
+    #
+    # Includes:
+    #   - Consolidated governance compliance summary
+    #   - Retention policy evidence
+    #   - Policy audit events
+    #   - Legal hold lifecycle evidence
+    #   - Legal hold audit events
+    #   - CSV evidence exports
+    #
+    # Read-only reporting functionality.
+    # Does not modify governance records.
+    # Does not enable notification disposal.
+    # --------------------------------------------------------
+
+    get "notifications/governance_compliance",
+        to: "notification_governance_compliance#index",
+        as: :notification_governance_compliance
+
+    get "notifications/governance_compliance/export/:section",
+        to: "notification_governance_compliance#export",
+        as: :notification_governance_compliance_export
+
     # ========================================================
     # Phase 2D.8.4.3.11.1 - 2D.8.4.3.11.2a
     # RETENTION GOVERNANCE ADMINISTRATION

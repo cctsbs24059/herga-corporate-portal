@@ -1,0 +1,58 @@
+<% provide(:title, "Governance Compliance Reporting") %>
+
+<div class="container-fluid py-4" id="notification-governance-compliance">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <div>
+      <h1 class="h3 mb-1"><i class="bi bi-clipboard-data me-2" aria-hidden="true"></i>Governance Compliance Reporting</h1>
+      <p class="text-muted mb-0">Read-only evidence exports for notification retention governance.</p>
+    </div>
+    <%= link_to "Security assessment", infrastructure_notification_governance_security_path, class: "btn btn-outline-secondary" %>
+  </div>
+
+  <div class="alert alert-info">
+    Exports are point-in-time database extracts, not cryptographically signed evidence or proof of regulatory compliance.
+    Each detailed CSV includes up to <%= Infrastructure::NotificationGovernanceComplianceReport::MAX_ROWS_PER_SECTION %> rows, ordered by ID.
+    Exports may contain administrator identifiers and legal-hold justifications; store them securely.
+    Notification disposal remains disabled.
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header fw-semibold">Compliance snapshot</div>
+    <div class="card-body table-responsive">
+      <table class="table table-striped align-middle mb-0">
+        <tbody>
+          <% @assessment.each do |metric, value| %>
+            <tr>
+              <th scope="row"><%= metric.to_s.humanize %></th>
+              <td><%= value.is_a?(Time) ? value.utc.strftime("%Y-%m-%d %H:%M:%S UTC") : value.to_s %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-header fw-semibold">Download governance evidence (CSV)</div>
+    <div class="card-body table-responsive">
+      <table class="table align-middle mb-0">
+        <thead><tr><th>Evidence set</th><th>Records in database</th><th>Download</th></tr></thead>
+        <tbody>
+          <% Infrastructure::NotificationGovernanceComplianceReport::SECTIONS.each do |section| %>
+            <tr>
+              <td><%= section.humanize %></td>
+              <td><%= section == "summary" ? "Assessment" : @section_counts.fetch(section) %></td>
+              <td>
+                <%= link_to "Export CSV", infrastructure_notification_governance_compliance_export_path(section: section),
+                            class: "btn btn-sm btn-outline-primary", aria: { label: "Export #{section.humanize} CSV" } %>
+                <% if section != "summary" && @section_counts.fetch(section) > Infrastructure::NotificationGovernanceComplianceReport::MAX_ROWS_PER_SECTION %>
+                  <span class="text-warning small ms-2">Limited export — not all records included</span>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
