@@ -1,0 +1,56 @@
+<% provide(:title, "Retention Governance Security") %>
+
+<div class="container-fluid py-4" id="notification-governance-security">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+      <h1 class="h3 mb-1"><i class="bi bi-shield-check me-2" aria-hidden="true"></i>Retention Governance Security</h1>
+      <p class="text-muted mb-0">Read-only control consistency assessment; no notification disposal is authorised.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <%= link_to "Retention policies", infrastructure_notification_retention_policies_path, class: "btn btn-outline-primary" %>
+      <%= link_to "Legal holds", infrastructure_notification_legal_holds_path, class: "btn btn-outline-secondary" %>
+    </div>
+  </div>
+
+  <div class="alert alert-info" role="status">
+    <strong>Scope:</strong> These checks detect selected inconsistencies in database records and confirm that audit triggers are enabled.
+    They do not constitute cryptographic tamper detection, independent access-control testing, or proof of complete audit coverage.
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header fw-semibold">Policy governance</div>
+    <div class="card-body table-responsive">
+      <table class="table table-striped align-middle mb-0">
+        <tbody>
+          <tr><th scope="row">Total policies</th><td><%= @assessment[:policy_count] %></td></tr>
+          <tr><th scope="row">Approved policies</th><td><%= @assessment[:approved_policy_count] %></td></tr>
+          <tr><th scope="row">Approved without approval audit event</th><td><%= @assessment[:approved_without_approval_event] %></td></tr>
+          <tr><th scope="row">Policies without creation audit event</th><td><%= @assessment[:policies_without_creation_event] %></td></tr>
+          <tr><th scope="row">Same creator and approver detected</th><td><%= @assessment[:self_approved_policies] %></td></tr>
+          <tr><th scope="row">Retention audit append-only trigger</th><td><%= @assessment[:retention_audit_trigger_enabled] ? "Enabled" : "NOT ENABLED" %></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header fw-semibold">Legal hold governance</div>
+    <div class="card-body table-responsive">
+      <table class="table table-striped align-middle mb-0">
+        <tbody>
+          <tr><th scope="row">Active holds</th><td><%= @assessment[:active_hold_count] %></td></tr>
+          <tr><th scope="row">Released holds</th><td><%= @assessment[:released_hold_count] %></td></tr>
+          <tr><th scope="row">Released without release audit event</th><td><%= @assessment[:released_without_release_event] %></td></tr>
+          <tr><th scope="row">Active holds with release audit event</th><td><%= @assessment[:active_with_release_event] %></td></tr>
+          <tr><th scope="row">Holds with multiple release audit events</th><td><%= @assessment[:duplicate_release_event_holds] %></td></tr>
+          <tr><th scope="row">Legal hold audit append-only trigger</th><td><%= @assessment[:legal_hold_audit_trigger_enabled] ? "Enabled" : "NOT ENABLED" %></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="alert alert-secondary mb-0">
+    <strong>Disposal status:</strong> Disabled. Assessed at <%= @assessment[:assessed_at].utc.strftime("%Y-%m-%d %H:%M:%S UTC") %>.
+    <span class="d-block small mt-1">A zero anomaly count means no anomaly was detected by these specific checks; it does not certify full compliance.</span>
+  </div>
+</div>

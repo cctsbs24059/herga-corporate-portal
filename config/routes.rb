@@ -214,6 +214,26 @@ Rails.application.routes.draw do
         to: "notification_retention#index",
         as: :notification_retention
 
+    # --------------------------------------------------------
+    # Phase 2D.8.4.3.11.2c
+    # Retention Governance Security Verification
+    #
+    # Read-only administrator security dashboard.
+    #
+    # Includes:
+    #   - Policy approval evidence assessment
+    #   - Legal hold audit consistency
+    #   - Append-only audit trigger verification
+    #   - Governance security findings
+    #
+    # Does not modify policies or legal holds.
+    # Does not enable notification disposal.
+    # --------------------------------------------------------
+
+    get "notifications/governance_security",
+        to: "notification_governance_security#index",
+        as: :notification_governance_security
+
     # ========================================================
     # Phase 2D.8.4.3.11.1 - 2D.8.4.3.11.2a
     # RETENTION GOVERNANCE ADMINISTRATION
