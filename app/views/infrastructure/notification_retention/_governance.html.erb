@@ -1,0 +1,31 @@
+<div class="card shadow-sm mb-4" id="notification-retention-governance">
+  <div class="card-header fw-semibold">
+    <i class="bi bi-shield-check me-2"></i>Retention Policy Governance
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <dl class="row mb-0">
+          <dt class="col-6">Effective status</dt>
+          <dd class="col-6"><span class="badge <%= governance[:policy_status] == 'Approved' ? 'bg-success' : 'bg-secondary' %>"><%= governance[:policy_status] %></span></dd>
+          <dt class="col-6">Policy reference</dt>
+          <dd class="col-6"><%= governance[:policy_reference] || 'Not recorded' %></dd>
+          <dt class="col-6">Approved by</dt>
+          <dd class="col-6"><%= governance[:approved_by] || 'Not recorded' %></dd>
+          <dt class="col-6">Approval date</dt>
+          <dd class="col-6"><%= governance[:approved_on]&.iso8601 || 'Not recorded' %></dd>
+          <dt class="col-6">Assessment period</dt>
+          <dd class="col-6"><%= governance[:retention_days] %> days</dd>
+        </dl>
+      </div>
+      <div class="col-md-6">
+        <p class="mb-2"><strong>Preservation controls:</strong> Pending, Sending and Unknown records remain protected.</p>
+        <p class="mb-2"><strong>Disposal authorisation:</strong> <span class="badge bg-danger">Not enabled</span></p>
+        <p class="small text-muted mb-0">This page reads environment-supplied policy metadata only. It does not establish a tamper-evident approval record, legal hold, archival workflow or permission to delete.</p>
+      </div>
+    </div>
+    <% governance[:warnings].each do |warning| %>
+      <div class="alert alert-warning py-2 mt-3 mb-0" role="status"><%= warning %></div>
+    <% end %>
+  </div>
+</div>

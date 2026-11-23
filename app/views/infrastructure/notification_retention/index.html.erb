@@ -1,79 +1,454 @@
+
+<%# frozen_string_literal: true %>
+
 <% provide(:title, "Notification Retention") %>
 
 <div class="container-fluid py-4" id="notification-retention-dashboard">
+
+  <!-- ====================================================== -->
+  <!-- PAGE HEADER -->
+  <!-- ====================================================== -->
+
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+
     <div>
-      <h1 class="h3 mb-1"><i class="bi bi-archive me-2"></i>Notification Retention Assessment</h1>
-      <p class="text-muted mb-0">Administrator-only, read-only review of notification and delivery-attempt record ages.</p>
+      <h1 class="h3 mb-1">
+        <i class="bi bi-archive me-2"></i>
+        Notification Retention Assessment
+      </h1>
+
+      <p class="text-muted mb-0">
+        Administrator-only, read-only review of notification
+        retention, delivery-attempt record ages and policy governance.
+      </p>
     </div>
-    <div class="d-flex gap-2">
-      <%= link_to "Operations Dashboard", infrastructure_notification_operations_path, class: "btn btn-outline-secondary" %>
-      <%= link_to "Refresh", infrastructure_notification_retention_path, class: "btn btn-outline-primary" %>
+
+    <div class="d-flex flex-wrap gap-2">
+
+      <%= link_to infrastructure_notification_operations_path,
+                  class: "btn btn-outline-secondary" do %>
+        <i class="bi bi-speedometer2 me-1"></i>
+        Operations Dashboard
+      <% end %>
+
+      <%= link_to infrastructure_notification_retention_path,
+                  class: "btn btn-outline-primary" do %>
+        <i class="bi bi-arrow-clockwise me-1"></i>
+        Refresh
+      <% end %>
+
     </div>
   </div>
 
-  <div class="alert alert-info" role="status">
-    <strong>Assessment only.</strong> No deletion, archival, or changes to notification records are performed.
-    The <%= @assessment[:retention_days] %>-day period is a configurable planning assumption, not an approved retention policy.
-  </div>
+  <!-- ====================================================== -->
+  <!-- RETENTION SAFETY NOTICE -->
+  <!-- ====================================================== -->
 
-  <div class="card shadow-sm mb-4">
-    <div class="card-body d-flex flex-wrap gap-4">
-      <div><strong>Assessment time:</strong> <%= @assessment[:assessed_at].utc.strftime("%d %b %Y %H:%M UTC") %></div>
-      <div><strong>Older than:</strong> <%= @assessment[:cutoff_at].utc.strftime("%d %b %Y %H:%M UTC") %></div>
-      <div><span class="badge bg-secondary">Read-only</span></div>
+  <div class="alert alert-info d-flex align-items-start gap-3"
+       role="status">
+
+    <i class="bi bi-info-circle fs-4"></i>
+
+    <div>
+      <strong>Assessment only.</strong>
+
+      No deletion, archival or changes to notification records
+      are performed.
+
+      <p class="mb-0 mt-2">
+        The
+        <strong><%= @assessment[:retention_days] %>-day</strong>
+        period is a configurable planning assumption.
+
+        It must not be interpreted as an approved retention
+        schedule or authorisation to dispose of records.
+      </p>
     </div>
+
   </div>
 
-  <h2 class="h5 mb-3">Retention overview</h2>
-  <div class="row g-3 mb-4" id="notification-retention-kpis">
-    <% [
-      ["Total notifications", @assessment[:total_notifications], "primary"],
-      ["Accepted notifications", @assessment[:accepted_notifications], "success"],
-      ["Aged accepted candidates", @assessment[:candidate_notifications], "warning"],
-      ["Candidates with audit attempts", @assessment[:candidate_with_attempts], "info"],
-      ["Protected notifications", @assessment[:protected_notifications], "secondary"],
-      ["Total delivery attempts", @assessment[:total_attempts], "primary"],
-      ["Aged delivery attempts", @assessment[:aged_attempts], "warning"]
-    ].each do |label, value, colour| %>
-      <div class="col-sm-6 col-xl-4">
-        <div class="card shadow-sm h-100"><div class="card-body">
-          <div class="small text-muted"><%= label %></div>
-          <div class="h3 mt-2 mb-0 text-<%= colour %>"><%= number_with_delimiter(value) %></div>
-        </div></div>
+  <!-- ====================================================== -->
+  <!-- ASSESSMENT METADATA -->
+  <!-- ====================================================== -->
+
+  <div class="card shadow-sm mb-4"
+       id="notification-retention-assessment-metadata">
+
+    <div class="card-body">
+
+      <div class="d-flex flex-wrap align-items-center gap-4">
+
+        <div>
+          <div class="small text-muted mb-1">
+            Assessment time
+          </div>
+
+          <strong>
+            <%= @assessment[:assessed_at]
+                  .utc
+                  .strftime("%d %b %Y %H:%M UTC") %>
+          </strong>
+        </div>
+
+        <div>
+          <div class="small text-muted mb-1">
+            Retention cutoff
+          </div>
+
+          <strong>
+            <%= @assessment[:cutoff_at]
+                  .utc
+                  .strftime("%d %b %Y %H:%M UTC") %>
+          </strong>
+        </div>
+
+        <div>
+          <div class="small text-muted mb-1">
+            Assessment period
+          </div>
+
+          <strong>
+            <%= @assessment[:retention_days] %> days
+          </strong>
+        </div>
+
+        <div class="ms-auto">
+
+          <span class="badge bg-secondary">
+            <i class="bi bi-lock me-1"></i>
+            Read-only
+          </span>
+
+        </div>
+
       </div>
-    <% end %>
+
+    </div>
   </div>
+
+  <!-- ====================================================== -->
+  <!-- PHASE 2D.8.4.3.10 -->
+  <!-- RETENTION POLICY GOVERNANCE -->
+  <!-- ====================================================== -->
+  <!--
+    This partial displays read-only policy metadata.
+
+    The controller must assign:
+
+      @governance =
+        Infrastructure::NotificationRetentionGovernance.new.call
+
+    No approval transitions or disposal actions are performed.
+  -->
+
+  <%= render "governance",
+             governance: @governance %>
+
+  <!-- ====================================================== -->
+  <!-- RETENTION OVERVIEW -->
+  <!-- ====================================================== -->
+
+  <div class="d-flex align-items-center gap-2 mb-3">
+
+    <i class="bi bi-bar-chart text-primary"></i>
+
+    <h2 class="h5 mb-0">
+      Retention Overview
+    </h2>
+
+  </div>
+
+  <div class="row g-3 mb-4"
+       id="notification-retention-kpis">
+
+    <% [
+      [
+        "Total notifications",
+        @assessment[:total_notifications],
+        "primary",
+        "bi-envelope"
+      ],
+      [
+        "Accepted notifications",
+        @assessment[:accepted_notifications],
+        "success",
+        "bi-check-circle"
+      ],
+      [
+        "Aged accepted candidates",
+        @assessment[:candidate_notifications],
+        "warning",
+        "bi-hourglass-split"
+      ],
+      [
+        "Candidates with audit attempts",
+        @assessment[:candidate_with_attempts],
+        "info",
+        "bi-journal-text"
+      ],
+      [
+        "Protected notifications",
+        @assessment[:protected_notifications],
+        "secondary",
+        "bi-shield-lock"
+      ],
+      [
+        "Total delivery attempts",
+        @assessment[:total_attempts],
+        "primary",
+        "bi-send"
+      ],
+      [
+        "Aged delivery attempts",
+        @assessment[:aged_attempts],
+        "warning",
+        "bi-clock-history"
+      ]
+    ].each do |label, value, colour, icon| %>
+
+      <div class="col-sm-6 col-xl-4">
+
+        <div class="card shadow-sm h-100">
+
+          <div class="card-body">
+
+            <div class="d-flex justify-content-between align-items-start gap-2">
+
+              <div class="small text-muted">
+                <%= label %>
+              </div>
+
+              <i class="bi <%= icon %> text-<%= colour %>"></i>
+
+            </div>
+
+            <div class="h3 mt-2 mb-0 text-<%= colour %>">
+              <%= number_with_delimiter(value) %>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    <% end %>
+
+  </div>
+
+  <!-- ====================================================== -->
+  <!-- PROTECTED STATUSES AND AUDIT SAFEGUARDS -->
+  <!-- ====================================================== -->
 
   <div class="row g-3 mb-4">
+
+    <!-- PROTECTED STATUSES -->
+
     <div class="col-lg-6">
-      <div class="card shadow-sm h-100" id="notification-retention-protected">
-        <div class="card-header fw-semibold">Protected operational statuses</div>
+
+      <div class="card shadow-sm h-100"
+           id="notification-retention-protected">
+
+        <div class="card-header fw-semibold">
+
+          <i class="bi bi-shield-lock me-2"></i>
+
+          Protected Operational Statuses
+
+        </div>
+
         <div class="card-body">
-          <p class="small text-muted">These records are excluded from the candidate assessment regardless of age.</p>
+
+          <p class="small text-muted">
+            These notification records are excluded from
+            the retention candidate assessment regardless
+            of their age.
+          </p>
+
           <dl class="row mb-0">
+
             <% %w[Pending Sending Unknown].each do |status| %>
-              <dt class="col-8"><%= status %></dt>
-              <dd class="col-4 text-end"><%= number_with_delimiter(@assessment[:protected_by_status].fetch(status, 0)) %></dd>
+
+              <dt class="col-8">
+
+                <% case status %>
+                <% when "Pending" %>
+                  <i class="bi bi-clock text-warning me-2"></i>
+                <% when "Sending" %>
+                  <i class="bi bi-arrow-repeat text-info me-2"></i>
+                <% when "Unknown" %>
+                  <i class="bi bi-question-circle text-danger me-2"></i>
+                <% end %>
+
+                <%= status %>
+
+              </dt>
+
+              <dd class="col-4 text-end">
+
+                <%= number_with_delimiter(
+                      @assessment[:protected_by_status].fetch(status, 0)
+                    ) %>
+
+              </dd>
+
             <% end %>
+
           </dl>
+
+          <div class="alert alert-light border small mt-3 mb-0">
+
+            <strong>Unknown outcomes:</strong>
+
+            An Unknown status represents an indeterminate
+            Microsoft Graph submission outcome.
+
+            It must not be interpreted as a confirmed failure
+            or used to trigger automatic resubmission.
+
+          </div>
+
         </div>
+
       </div>
+
     </div>
+
+    <!-- AUDIT SAFEGUARDS -->
+
     <div class="col-lg-6">
-      <div class="card shadow-sm h-100" id="notification-retention-controls">
-        <div class="card-header fw-semibold">Audit safeguards</div>
-        <div class="card-body">
-          <p>Delivery attempts remain linked to their parent notifications. Candidate counts do not authorise deletion.</p>
-          <p class="mb-0">Before introducing any cleanup, approve a retention schedule, legal-hold process, investigation protections, archival approach and recovery procedure.</p>
+
+      <div class="card shadow-sm h-100"
+           id="notification-retention-controls">
+
+        <div class="card-header fw-semibold">
+
+          <i class="bi bi-journal-check me-2"></i>
+
+          Audit Safeguards
+
         </div>
+
+        <div class="card-body">
+
+          <p>
+            Delivery attempts remain linked to their
+            parent notifications.
+
+            Candidate counts are informational and do not
+            authorise deletion or archival.
+          </p>
+
+          <p class="mb-2">
+            Before introducing any automated cleanup,
+            the following governance capabilities require
+            formal design and approval:
+          </p>
+
+          <ul class="small mb-3">
+
+            <li>Approved corporate retention schedule</li>
+
+            <li>Legal-hold and investigation protections</li>
+
+            <li>Preservation of delivery-attempt audit evidence</li>
+
+            <li>Controlled archival and recovery procedures</li>
+
+            <li>Authorised disposal workflow and audit logging</li>
+
+          </ul>
+
+          <div class="d-flex align-items-center gap-2">
+
+            <i class="bi bi-lock-fill text-secondary"></i>
+
+            <span class="small fw-semibold">
+              Automatic disposal is not enabled.
+            </span>
+
+          </div>
+
+        </div>
+
       </div>
+
     </div>
+
   </div>
 
-  <div class="alert alert-light border small" role="note">
-    <strong>Interpretation:</strong> “Aged accepted candidates” means Accepted notifications created before the cutoff.
-    “Aged delivery attempts” is an independent count based on attempted_at; it does not imply those attempts can be deleted.
-    Accepted indicates Microsoft Graph accepted submission, not confirmed recipient delivery.
+  <!-- ====================================================== -->
+  <!-- OPERATIONAL INTERPRETATION -->
+  <!-- ====================================================== -->
+
+  <div class="alert alert-light border small"
+       id="notification-retention-interpretation"
+       role="note">
+
+    <div class="fw-semibold mb-2">
+
+      <i class="bi bi-info-circle me-2"></i>
+
+      Operational Interpretation
+
+    </div>
+
+    <p class="mb-2">
+
+      <strong>Aged accepted candidates</strong>
+
+      refers to Accepted notification records created
+      before the configured retention cutoff.
+
+      This classification does not establish disposal
+      eligibility.
+
+    </p>
+
+    <p class="mb-2">
+
+      <strong>Aged delivery attempts</strong>
+
+      is an independent count based on the
+      <code>attempted_at</code> timestamp.
+
+      It does not imply that the corresponding audit
+      records may be deleted.
+
+    </p>
+
+    <p class="mb-2">
+
+      <strong>Accepted</strong>
+
+      indicates that Microsoft Graph accepted the
+      notification submission.
+
+      It does not confirm delivery to the recipient.
+
+    </p>
+
+    <p class="mb-2">
+
+      <strong>Policy governance metadata</strong>
+
+      is supplied through application configuration.
+
+      Displaying an Approved status does not independently
+      verify corporate approval or authorise disposal.
+
+    </p>
+
+    <p class="mb-0">
+
+      <strong>Data preservation:</strong>
+
+      This dashboard does not modify notification statuses,
+      delete records, archive records or initiate
+      notification delivery.
+
+    </p>
+
   </div>
+
 </div>

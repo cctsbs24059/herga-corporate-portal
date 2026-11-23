@@ -6,6 +6,7 @@ module Infrastructure
 
     def index
       @assessment = Infrastructure::NotificationRetentionAssessment.new.call
+      @governance = Infrastructure::NotificationRetentionGovernance.new.call
     end
   end
 end
