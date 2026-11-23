@@ -10,6 +10,9 @@ module Infrastructure
     end
 
     def show
+      @creator = @policy.events.where(action: "Created").order(:id).first&.actor
+      @may_approve = @policy.status == "Draft" && @creator.present? &&
+                     !@creator.casecmp?(actor)
       @events = @policy.events.order(created_at: :desc, id: :desc)
     end
 

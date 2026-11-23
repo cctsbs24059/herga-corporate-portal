@@ -16,7 +16,7 @@ module Infrastructure
     test "approval and suspension create audit events" do
       manager = NotificationRetentionPolicyManager.new(actor: "test-admin")
       policy = manager.create!(name: "Notification policy", reference: "POL-TEST-002", retention_days: 365)
-      manager.approve!(policy: policy, approval_reference: "POL-TEST-002")
+      NotificationRetentionPolicyManager.new(actor: "reviewer-admin").approve!(policy: policy, approval_reference: "POL-TEST-002")
       assert_equal "Approved", policy.reload.status
       assert_equal 2, policy.version
       manager.suspend!(policy: policy)
@@ -38,9 +38,9 @@ module Infrastructure
     test "cannot repeat approval" do
       manager = NotificationRetentionPolicyManager.new(actor: "test-admin")
       policy = manager.create!(name: "Notification policy", reference: "POL-TEST-004", retention_days: 365)
-      manager.approve!(policy: policy, approval_reference: policy.reference)
+      NotificationRetentionPolicyManager.new(actor: "reviewer-admin").approve!(policy: policy, approval_reference: policy.reference)
       assert_raises(NotificationRetentionPolicyManager::InvalidTransition) do
-        manager.approve!(policy: policy, approval_reference: policy.reference)
+        NotificationRetentionPolicyManager.new(actor: "reviewer-admin").approve!(policy: policy, approval_reference: policy.reference)
       end
     end
 

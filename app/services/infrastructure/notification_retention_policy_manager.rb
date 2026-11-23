@@ -24,6 +24,13 @@ module Infrastructure
     def approve!(policy:, approval_reference:)
       raise ArgumentError, "Approval reference is required" if approval_reference.to_s.strip.blank?
       transition!(policy, from: "Draft", to: "Approved", action: "Approved") do |locked|
+        creator = locked.events.where(action: "Created").order(:id).first&.actor.to_s.strip
+        if creator.blank?
+          raise InvalidTransition, "Policy creation audit record is missing; approval denied"
+        end
+        if creator.casecmp?(@actor)
+          raise InvalidTransition, "Separation of duties: the policy creator cannot approve their own draft"
+        end
         # Approval reference must match the independently controlled policy reference.
         raise InvalidTransition, "Approval reference mismatch" unless locked.reference == approval_reference.to_s.strip
         locked.approved_by = @actor
