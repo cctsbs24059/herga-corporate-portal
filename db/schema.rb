@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_21_232152) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_23_122812) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -176,6 +176,50 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_232152) do
     t.index ["status"], name: "idx_notification_attempts_status"
   end
 
+  create_table "infrastructure_notification_legal_holds", force: :cascade do |t|
+    t.bigint "infrastructure_notification_id", null: false
+    t.string "reference", null: false
+    t.text "reason", null: false
+    t.string "placed_by", null: false
+    t.datetime "placed_at", null: false
+    t.string "released_by"
+    t.datetime "released_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["infrastructure_notification_id", "released_at"], name: "idx_herga_legal_holds_active"
+    t.index ["reference"], name: "idx_herga_legal_holds_reference", unique: true
+    t.check_constraint "released_at IS NULL AND released_by IS NULL OR released_at IS NOT NULL AND released_by IS NOT NULL", name: "chk_herga_legal_hold_release"
+  end
+
+  create_table "infrastructure_notification_retention_events", force: :cascade do |t|
+    t.bigint "notification_retention_policy_id", null: false
+    t.string "action", null: false
+    t.string "actor", null: false
+    t.string "from_status"
+    t.string "to_status", null: false
+    t.integer "policy_version", null: false
+    t.datetime "created_at", null: false
+    t.index ["notification_retention_policy_id"], name: "idx_herga_retention_events_policy"
+  end
+
+  create_table "infrastructure_notification_retention_policies", force: :cascade do |t|
+    t.string "name", null: false
+    t.string "reference", null: false
+    t.integer "retention_days", default: 365, null: false
+    t.string "status", default: "Draft", null: false
+    t.integer "version", default: 1, null: false
+    t.string "approved_by"
+    t.datetime "approved_at"
+    t.string "suspended_by"
+    t.datetime "suspended_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["reference"], name: "idx_herga_retention_policies_reference", unique: true
+    t.check_constraint "retention_days >= 30 AND retention_days <= 3650", name: "chk_herga_retention_days"
+    t.check_constraint "status::text = ANY (ARRAY['Draft'::character varying, 'Approved'::character varying, 'Suspended'::character varying]::text[])", name: "chk_herga_retention_status"
+    t.check_constraint "version >= 1", name: "chk_herga_retention_version"
+  end
+
   create_table "infrastructure_notifications", force: :cascade do |t|
     t.string "event_key", null: false
     t.string "event_type", null: false
@@ -240,4 +284,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_232152) do
   add_foreign_key "infrastructure_incidents", "users", column: "assigned_to_id"
   add_foreign_key "infrastructure_incidents", "users", column: "resolved_by_id"
   add_foreign_key "infrastructure_notification_attempts", "infrastructure_notifications"
+  add_foreign_key "infrastructure_notification_legal_holds", "infrastructure_notifications"
+  add_foreign_key "infrastructure_notification_retention_events", "infrastructure_notification_retention_policies", column: "notification_retention_policy_id"
 end
