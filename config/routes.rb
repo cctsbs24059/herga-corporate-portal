@@ -19,7 +19,6 @@ Rails.application.routes.draw do
              }
 
   devise_scope :user do
-
     get "users/sign_in",
         to: "users/sessions#new",
         as: :new_user_session
@@ -31,7 +30,6 @@ Rails.application.routes.draw do
     delete "users/sign_out",
            to: "users/sessions#destroy",
            as: :destroy_user_session
-
   end
 
   # ==========================================================
@@ -68,25 +66,16 @@ Rails.application.routes.draw do
   # ==========================================================
 
   resources :infrastructure_assets do
-
     collection do
-
       post :sync_active_directory
-
       post :check_all_connectivity
-
     end
 
     member do
-
       get :history
-
       patch :retire
-
       post :check_connectivity
-
     end
-
   end
 
   # ==========================================================
@@ -95,17 +84,11 @@ Rails.application.routes.draw do
 
   resources :infrastructure_incidents,
             only: [:index, :show] do
-
     member do
-
       patch :acknowledge
-
       patch :assign
-
       patch :resolve
-
     end
-
   end
 
   # ==========================================================
@@ -139,13 +122,9 @@ Rails.application.routes.draw do
 
     resources :availability_alerts,
               only: [:index, :show] do
-
       member do
-
         patch :acknowledge
-
       end
-
     end
 
     # --------------------------------------------------------
@@ -179,32 +158,13 @@ Rails.application.routes.draw do
     # NOTIFICATION MANAGEMENT
     # ========================================================
     #
-    # IMPORTANT ROUTING RULE:
-    #
-    # All static notification routes must appear before
-    # the dynamic notifications resource.
-    #
-    # Static routes:
-    #
-    #   /notifications/job_failures
-    #   /notifications/analytics
-    #   /notifications/reports
-    #   /notifications/operations
-    #   /notifications/retention
-    #
-    # Dynamic routes:
-    #
-    #   /notifications
-    #   /notifications/:id
-    #
+    # Static notification routes must precede the dynamic
+    # notifications resource.
     # ========================================================
 
     # --------------------------------------------------------
     # Phase 2D.8.4.3.4
     # Advanced Notification Failure Investigation
-    #
-    # Administrator-only access enforced by controller.
-    # Read-only failure history and investigation details.
     # --------------------------------------------------------
 
     get "notifications/job_failures",
@@ -219,9 +179,6 @@ Rails.application.routes.draw do
     # --------------------------------------------------------
     # Phase 2D.8.4.3.5
     # Notification Operational Analytics & Trends
-    #
-    # Administrator-only access enforced by controller.
-    # Read-only analytics and reporting dashboard.
     # --------------------------------------------------------
 
     get "notifications/analytics",
@@ -231,31 +188,6 @@ Rails.application.routes.draw do
     # --------------------------------------------------------
     # Phase 2D.8.4.3.6
     # Notification Reporting & CSV Export
-    #
-    # Administrator-only access enforced by controller.
-    # Read-only reporting and CSV downloads.
-    #
-    # Supported report types:
-    #
-    #   history   - Notification history
-    #   attempts  - Delivery attempt audit
-    #   analytics - Notification analytics summary
-    #
-    # Reporting periods:
-    #
-    #   24h
-    #   7d
-    #   30d
-    #   90d
-    #
-    # Dashboard:
-    #
-    # /infrastructure/notifications/reports
-    #
-    # CSV export:
-    #
-    # /infrastructure/notifications/reports.csv?type=history
-    #
     # --------------------------------------------------------
 
     get "notifications/reports",
@@ -263,31 +195,8 @@ Rails.application.routes.draw do
         as: :notification_reports
 
     # --------------------------------------------------------
-    # Phase 2D.8.4.3.7
-    # Notification Operations Dashboard
-    #
-    # Phase 2D.8.4.3.8
-    # Notification Operational Alerting & Health Indicators
-    #
-    # Administrator-only access enforced by controller.
-    #
-    # Consolidated read-only operational dashboard:
-    #
-    #   - Notification delivery statistics
-    #   - Microsoft Graph acceptance metrics
-    #   - Unknown submission outcomes
-    #   - Notification job diagnostics
-    #   - Solid Queue health
-    #   - Operational health indicators
-    #   - Reporting period selection
-    #   - Navigation to notification modules
-    #
-    # Dashboard:
-    #
-    # /infrastructure/notifications/operations
-    #
-    # No database modifications.
-    # No notification delivery actions.
+    # Phase 2D.8.4.3.7 - 2D.8.4.3.8
+    # Notification Operations & Health Indicators
     # --------------------------------------------------------
 
     get "notifications/operations",
@@ -295,31 +204,47 @@ Rails.application.routes.draw do
         as: :notification_operations
 
     # --------------------------------------------------------
-    # Phase 2D.8.4.3.9
-    # Notification Retention & Audit Data Lifecycle
+    # Phase 2D.8.4.3.9 - 2D.8.4.3.10
+    # Notification Retention Assessment & Governance
     #
-    # Administrator-only access enforced by controller.
-    #
-    # Read-only retention assessment:
-    #
-    #   - Notification retention eligibility
-    #   - Configurable retention thresholds
-    #   - Protected notification records
-    #   - Delivery attempt audit assessment
-    #   - Retention reporting
-    #
-    # Dashboard:
-    #
-    # /infrastructure/notifications/retention
-    #
-    # No automatic deletion.
-    # No archival operations.
-    # No notification status modifications.
+    # Read-only retention assessment dashboard.
     # --------------------------------------------------------
 
     get "notifications/retention",
         to: "notification_retention#index",
         as: :notification_retention
+
+    # ========================================================
+    # Phase 2D.8.4.3.11.1
+    # RETENTION GOVERNANCE ADMINISTRATION
+    # ========================================================
+    #
+    # Administrator-only access enforced by controllers.
+    #
+    # Retention policies:
+    #   - List policies
+    #   - View policy details and audit history
+    #   - Create draft policies
+    #   - Approve policies
+    #   - Suspend policies
+    #
+    # Legal holds:
+    #   - List legal holds
+    #   - Register legal holds
+    #
+    # No automatic deletion or archival.
+    # ========================================================
+
+    resources :notification_retention_policies,
+              only: [:index, :show, :new, :create] do
+      member do
+        patch :approve
+        patch :suspend
+      end
+    end
+
+    resources :notification_legal_holds,
+              only: [:index, :new, :create]
 
     # --------------------------------------------------------
     # Phase 2D.8.2.13
@@ -331,20 +256,7 @@ Rails.application.routes.draw do
     # Phase 2D.8.4.3.3
     # Notification Processing Diagnostics
     #
-    # SECURITY HARDENING:
-    #
-    # Restrict notification IDs to numeric values.
-    #
-    # Prevent static paths such as:
-    #
-    #   /notifications/reports
-    #   /notifications/operations
-    #   /notifications/retention
-    #
-    # from being interpreted as notification IDs.
-    #
-    # IMPORTANT:
-    # This resource must remain after all static
+    # Keep this dynamic resource after the static
     # notification routes.
     # --------------------------------------------------------
 
@@ -359,10 +271,8 @@ Rails.application.routes.draw do
   # ==========================================================
 
   namespace :admin do
-
     resources :portal_applications,
               except: [:show]
-
   end
 
   # ==========================================================

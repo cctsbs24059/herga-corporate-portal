@@ -1,0 +1,20 @@
+<% provide(:title, "Retention Policies") %>
+<div class="container-fluid py-4" id="retention-policies">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h1 class="h3 mb-0">Retention Policies</h1>
+    <div class="d-flex gap-2">
+      <%= link_to "Retention Assessment", infrastructure_notification_retention_path, class: "btn btn-outline-secondary" %>
+      <%= link_to "Legal Holds", infrastructure_notification_legal_holds_path, class: "btn btn-outline-secondary" %>
+      <%= link_to "New Draft", new_infrastructure_notification_retention_policy_path, class: "btn btn-primary" %>
+    </div>
+  </div>
+  <div class="alert alert-warning">Policy approval is governance metadata only. It does not authorise deletion or archival.</div>
+  <div class="card shadow-sm"><div class="table-responsive">
+    <table class="table table-striped align-middle mb-0"><thead><tr><th>Reference</th><th>Name</th><th>Days</th><th>Status</th><th>Version</th><th></th></tr></thead><tbody>
+      <% @policies.each do |policy| %>
+        <tr><td><%= policy.reference %></td><td><%= policy.name %></td><td><%= policy.retention_days %></td><td><%= policy.status %></td><td><%= policy.version %></td><td><%= link_to "Review", infrastructure_notification_retention_policy_path(policy), class: "btn btn-sm btn-outline-primary" %></td></tr>
+      <% end %>
+      <% if @policies.empty? %><tr><td colspan="6" class="text-muted">No policies have been registered.</td></tr><% end %>
+    </tbody></table>
+  </div></div>
+</div>
