@@ -1,9 +1,42 @@
 <% provide(:title, "Notification Legal Holds") %>
 <div class="container-fluid py-4" id="notification-legal-holds">
-  <div class="d-flex justify-content-between flex-wrap gap-2 mb-3"><h1 class="h3">Notification Legal Holds</h1><div class="d-flex gap-2"><%= link_to "Policies", infrastructure_notification_retention_policies_path, class: "btn btn-outline-secondary" %><%= link_to "Register Hold", new_infrastructure_notification_legal_hold_path, class: "btn btn-primary" %></div></div>
-  <div class="alert alert-info">Legal holds preserve notification records. This interface does not release holds or dispose of data.</div>
-  <div class="card shadow-sm"><div class="table-responsive"><table class="table table-striped mb-0"><thead><tr><th>Reference</th><th>Notification ID</th><th>Reason</th><th>Status</th><th>Placed by</th><th>Placed (UTC)</th></tr></thead><tbody>
-    <% @holds.each do |hold| %><tr><td><%= hold.reference %></td><td><%= hold.infrastructure_notification_id %></td><td><%= hold.reason %></td><td><%= hold.active? ? "Active" : "Released" %></td><td><%= hold.placed_by %></td><td><%= hold.placed_at.utc.strftime("%d %b %Y %H:%M") %></td></tr><% end %>
-    <% if @holds.empty? %><tr><td colspan="6">No legal holds registered.</td></tr><% end %>
-  </tbody></table></div></div>
+  <div class="d-flex justify-content-between flex-wrap gap-2 mb-3">
+    <h1 class="h3">Notification Legal Holds</h1>
+    <div class="d-flex gap-2">
+      <%= link_to "Policies", infrastructure_notification_retention_policies_path, class: "btn btn-outline-secondary" %>
+      <%= link_to "Register Hold", new_infrastructure_notification_legal_hold_path, class: "btn btn-primary" %>
+    </div>
+  </div>
+  <div class="alert alert-info">A release requires a different administrator and a documented justification. Releasing a hold does not delete any notification.</div>
+  <div class="card shadow-sm mb-3"><div class="card-body">
+    <h2 class="h5">Audit consistency assessment</h2>
+    <p class="mb-1">Active: <%= @audit_summary[:active_holds] %> · Released: <%= @audit_summary[:released_holds] %> · Release events: <%= @audit_summary[:release_events] %></p>
+    <p class="mb-0">Released without event: <%= @audit_summary[:released_without_event] %> · Active with release event: <%= @audit_summary[:active_with_release_event] %> · Duplicate release events: <%= @audit_summary[:multiple_release_events] %> · Append-only trigger: <%= @audit_summary[:append_only_trigger_enabled] ? "Enabled" : "Missing/disabled" %></p>
+    <small class="text-muted">These checks identify consistency anomalies; they do not provide cryptographic proof against privileged database tampering.</small>
+  </div></div>
+  <div class="card shadow-sm"><div class="table-responsive"><table class="table table-striped align-middle mb-0">
+    <thead><tr><th>Reference</th><th>Notification ID</th><th>Reason</th><th>Status</th><th>Placed by</th><th>Placed (UTC)</th><th>Release</th></tr></thead>
+    <tbody>
+    <% @holds.each do |hold| %>
+      <tr>
+        <td><%= hold.reference %></td><td><%= hold.infrastructure_notification_id %></td><td><%= hold.reason %></td>
+        <td><%= hold.active? ? "Active" : "Released" %></td><td><%= hold.placed_by %></td>
+        <td><%= hold.placed_at.utc.strftime("%d %b %Y %H:%M") %></td>
+        <td>
+          <% if hold.active? && !hold.placed_by.to_s.strip.casecmp?(current_user.username.to_s.strip) %>
+            <%= form_with url: release_infrastructure_notification_legal_hold_path(hold), method: :patch do |f| %>
+              <%= f.label :justification, "Release justification", class: "visually-hidden" %>
+              <%= f.text_field :justification, required: true, class: "form-control form-control-sm mb-1", placeholder: "Release justification" %>
+              <%= f.submit "Release hold", class: "btn btn-sm btn-outline-danger", data: { turbo_confirm: "Release this hold? This action is audited." } %>
+            <% end %>
+          <% elsif hold.active? %>
+            <span class="text-muted">Creator cannot release</span>
+          <% else %>
+            <span class="text-muted"><%= hold.released_by %> · <%= hold.released_at&.utc&.strftime("%d %b %Y %H:%M") %></span>
+          <% end %>
+        </td>
+      </tr>
+    <% end %>
+    <% if @holds.empty? %><tr><td colspan="7">No legal holds registered.</td></tr><% end %>
+    </tbody></table></div></div>
 </div>

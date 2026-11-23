@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_23_122812) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_23_142117) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -176,6 +176,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_23_122812) do
     t.index ["status"], name: "idx_notification_attempts_status"
   end
 
+  create_table "infrastructure_notification_legal_hold_events", force: :cascade do |t|
+    t.bigint "notification_legal_hold_id", null: false
+    t.string "action", null: false
+    t.string "actor", null: false
+    t.text "justification", null: false
+    t.datetime "created_at", null: false
+    t.index ["notification_legal_hold_id"], name: "idx_herga_hold_events_hold"
+    t.check_constraint "length(btrim(justification)) > 0 AND length(btrim(actor::text)) > 0", name: "chk_herga_hold_event_evidence"
+  end
+
   create_table "infrastructure_notification_legal_holds", force: :cascade do |t|
     t.bigint "infrastructure_notification_id", null: false
     t.string "reference", null: false
@@ -284,6 +294,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_23_122812) do
   add_foreign_key "infrastructure_incidents", "users", column: "assigned_to_id"
   add_foreign_key "infrastructure_incidents", "users", column: "resolved_by_id"
   add_foreign_key "infrastructure_notification_attempts", "infrastructure_notifications"
+  add_foreign_key "infrastructure_notification_legal_hold_events", "infrastructure_notification_legal_holds", column: "notification_legal_hold_id"
   add_foreign_key "infrastructure_notification_legal_holds", "infrastructure_notifications"
   add_foreign_key "infrastructure_notification_retention_events", "infrastructure_notification_retention_policies", column: "notification_retention_policy_id"
 end

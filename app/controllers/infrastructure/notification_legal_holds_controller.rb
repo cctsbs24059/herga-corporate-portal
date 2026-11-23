@@ -6,6 +6,7 @@ module Infrastructure
 
     def index
       @holds = NotificationLegalHold.order(placed_at: :desc, id: :desc).limit(200)
+      @audit_summary = NotificationLegalHoldAuditVerifier.new.call
     end
 
     def new
@@ -16,11 +17,28 @@ module Infrastructure
       @hold = NotificationLegalHold.new(hold_params)
       @hold.placed_by = current_user.username
       @hold.placed_at = Time.current
-      if @hold.save
-        redirect_to infrastructure_notification_legal_holds_path, notice: "Legal hold registered."
-      else
-        render :new, status: :unprocessable_entity
+      NotificationLegalHold.transaction do
+        @hold.save!
+        NotificationLegalHoldEvent.create!(
+          notification_legal_hold: @hold, action: "Placed",
+          actor: current_user.username, justification: @hold.reason,
+          created_at: Time.current
+        )
       end
+      redirect_to infrastructure_notification_legal_holds_path, notice: "Legal hold registered."
+    rescue ActiveRecord::RecordInvalid => e
+      @hold.errors.add(:base, e.message) if @hold.errors.empty?
+      render :new, status: :unprocessable_entity
+    end
+
+    def release
+      hold = NotificationLegalHold.find(params[:id])
+      NotificationLegalHoldManager.new(actor: current_user.username).release!(
+        hold: hold, justification: params[:justification]
+      )
+      redirect_to infrastructure_notification_legal_holds_path, notice: "Legal hold released and audited."
+    rescue NotificationLegalHoldManager::ReleaseDenied => e
+      redirect_to infrastructure_notification_legal_holds_path, alert: e.message
     end
 
     private

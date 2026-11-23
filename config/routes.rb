@@ -215,7 +215,7 @@ Rails.application.routes.draw do
         as: :notification_retention
 
     # ========================================================
-    # Phase 2D.8.4.3.11.1
+    # Phase 2D.8.4.3.11.1 - 2D.8.4.3.11.2a
     # RETENTION GOVERNANCE ADMINISTRATION
     # ========================================================
     #
@@ -227,24 +227,46 @@ Rails.application.routes.draw do
     #   - Create draft policies
     #   - Approve policies
     #   - Suspend policies
-    #
-    # Legal holds:
-    #   - List legal holds
-    #   - Register legal holds
+    #   - Enforce independent policy approval
     #
     # No automatic deletion or archival.
     # ========================================================
 
     resources :notification_retention_policies,
               only: [:index, :show, :new, :create] do
+
       member do
         patch :approve
         patch :suspend
       end
+
     end
 
+    # ========================================================
+    # Phase 2D.8.4.3.11.1 - 2D.8.4.3.11.2b
+    # LEGAL HOLD GOVERNANCE
+    # ========================================================
+    #
+    # Administrator-only access enforced by controllers.
+    #
+    # Legal holds:
+    #   - List registered legal holds
+    #   - Register new legal holds
+    #   - Release legal holds through controlled workflow
+    #   - Enforce separation of duties for release
+    #   - Record release justification and audit evidence
+    #
+    # Releasing a legal hold does not delete notifications.
+    # ========================================================
+
     resources :notification_legal_holds,
-              only: [:index, :new, :create]
+              only: [:index, :new, :create] do
+
+      member do
+        patch :release
+      end
+
+    end
 
     # --------------------------------------------------------
     # Phase 2D.8.2.13
