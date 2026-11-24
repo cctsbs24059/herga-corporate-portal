@@ -1,30 +1,70 @@
 
 # frozen_string_literal: true
 
-# HERGA Corporate Portal
-# Phase 2E.1c - Active Directory Authentication and RBAC
-#
-# Security:
-# - LDAPS with TLS certificate validation in production.
-# - Authentication uses the employee's own AD credentials.
-# - Per-request authorisation uses the read-only service account.
-# - Direct and nested AD group membership is supported.
-# - Multiple application roles are supported.
-# - Missing groups and failed LDAP queries deny access.
-# - Passwords are never stored in the Rails database.
-
 require "net/ldap"
 require "openssl"
 
 class ActiveDirectoryAuthenticator
-  DOMAIN = "HERGA"
-  DNS_DOMAIN = "herga.net"
-  SERVER = "csi.herga.net"
-  BASE_DN = "DC=herga,DC=net"
+
+  # ==========================================================
+  # ACTIVE DIRECTORY CONFIGURATION
+  # ==========================================================
+
+  DOMAIN = ENV.fetch(
+    "HERGA_AD_DOMAIN", "HERGA"
+  ).strip.freeze
+
+  DNS_DOMAIN = ENV.fetch(
+    "HERGA_AD_DNS_DOMAIN", "herga.net"
+  ).strip.freeze
+
+  BASE_DN = ENV.fetch(
+    "HERGA_AD_BASE_DN", "DC=herga,DC=net"
+  ).strip.freeze
+
+  LDAP_SERVERS = ENV.fetch(
+    "HERGA_AD_SERVERS", "csi.herga.net"
+  ).split(",")
+   .map(&:strip)
+   .reject(&:empty?)
+   .uniq
+   .map(&:freeze)
+   .freeze
+
+  LDAP_PORT = Integer(
+    ENV.fetch("HERGA_AD_PORT", "636"), 10
+  )
+
+  LDAP_CONNECT_TIMEOUT = Integer(
+    ENV.fetch("HERGA_AD_CONNECT_TIMEOUT", "3"), 10
+  )
+
+  # ==========================================================
+  # CONFIGURATION VALIDATION
+  # ==========================================================
+
+  if LDAP_SERVERS.empty?
+    raise ArgumentError,
+          "HERGA_AD_SERVERS must contain at least one server"
+  end
+
+  unless LDAP_PORT.between?(1, 65_535)
+    raise ArgumentError,
+          "HERGA_AD_PORT must be between 1 and 65535"
+  end
+
+  unless LDAP_CONNECT_TIMEOUT.positive?
+    raise ArgumentError,
+          "HERGA_AD_CONNECT_TIMEOUT must be positive"
+  end
+
+  # Legacy compatibility.
+  SERVER = LDAP_SERVERS.first
 
   USER_GROUP = "HERGA-Portal-Users"
   ADMIN_GROUP = "HERGA-Portal-Admins"
 
+  # Active Directory recursive membership matching rule.
   CHAIN_RULE = "1.2.840.113556.1.4.1941"
 
   Result = Struct.new(
@@ -37,35 +77,52 @@ class ActiveDirectoryAuthenticator
     keyword_init: true
   )
 
-  # Accept Windows-style usernames, e.g. HERGA\bkava.
+  # ==========================================================
+  # USERNAME VALIDATION
+  # ==========================================================
+
   def self.parse_username(value)
-    match = /\A#{DOMAIN}\\([a-zA-Z0-9._-]+)\z/i.match(
+    match = /\A#{Regexp.escape(DOMAIN)}\\([a-zA-Z0-9._-]+)\z/i.match(
       value.to_s.strip
     )
 
     match && match[1].downcase
   end
 
-  # Establish an encrypted LDAPS connection.
-  #
-  # Certificate verification can only be disabled when
-  # explicitly configured outside production.
+  # ==========================================================
+  # LDAP SERVER CONFIGURATION
+  # ==========================================================
+
+  def self.ldap_hosts
+    LDAP_SERVERS.map do |server|
+      [server, LDAP_PORT]
+    end
+  end
+
+  # ==========================================================
+  # LDAP CONNECTION FACTORY
+  # ==========================================================
+
   def self.connection(username:, password:)
     skip_verification =
       !Rails.env.production? &&
       ENV["HERGA_LDAP_SKIP_CERT_VERIFY"] == "true"
 
     Net::LDAP.new(
-      host: SERVER,
-      port: 636,
+      hosts: ldap_hosts,
+
+      connect_timeout: LDAP_CONNECT_TIMEOUT,
+
       encryption: {
         method: :simple_tls,
+
         tls_options: {
           verify_mode: skip_verification ?
             OpenSSL::SSL::VERIFY_NONE :
             OpenSSL::SSL::VERIFY_PEER
         }
       },
+
       auth: {
         method: :simple,
         username: username,
@@ -74,47 +131,87 @@ class ActiveDirectoryAuthenticator
     )
   end
 
-  # Authenticate an employee using their AD credentials.
+  # ==========================================================
+  # CENTRALISED LDAP CONNECTION LIFECYCLE
   #
-  # Returns Result on success, nil on failure.
+  # Establishes one connection for the entire operation.
+  # Native Net LDAP connection failover remains enabled.
+  # The initial bind must succeed before queries are permitted.
+  # The connection is automatically closed by Net LDAP.
+  # ==========================================================
+
+  def self.with_connection(username:, password:)
+    return nil if username.to_s.strip.empty?
+    return nil if password.to_s.empty?
+
+    ldap = connection(
+      username: username,
+      password: password
+    )
+
+    ldap.open do |session|
+      result = session.get_operation_result
+
+      unless result && result.code == 0
+        Rails.logger.warn(
+          "AD connection rejected: LDAP bind unsuccessful"
+        )
+
+        return nil
+      end
+
+      return yield session
+    end
+
+    nil
+  end
+
+  # ==========================================================
+  # USER AUTHENTICATION
+  # ==========================================================
+
   def self.authenticate(login, password)
     username = parse_username(login)
 
     return nil if username.nil?
     return nil if password.to_s.empty?
 
-    ldap = connection(
+    with_connection(
       username: "#{username}@#{DNS_DOMAIN}",
       password: password
-    )
+    ) do |ldap|
 
-    return nil unless ldap.bind
+      entry = find_user(ldap, username)
 
-    entry = find_user(ldap, username)
-    return nil unless entry
+      next nil unless entry
 
-    roles = ActiveDirectory::RoleResolver.resolve(
-      ldap: ldap,
-      user_dn: entry.dn
-    )
+      roles = ActiveDirectory::RoleResolver.resolve(
+        ldap: ldap,
+        user_dn: entry.dn
+      )
 
-    # nil means directory failure.
-    # [] means no approved group membership.
-    return nil if roles.nil? || roles.empty?
+      next nil if roles.nil? || roles.empty?
 
-    Result.new(
-      username: username,
-      email: entry.mail.first.to_s.presence,
-      display_name: entry.displayname.first.to_s.presence ||
-                    username,
-      dn: entry.dn,
-      admin: roles.include?(:portal_admin),
-      roles: roles
-    )
+      Result.new(
+        username: username,
+        email: entry.mail.first.to_s.presence,
+
+        display_name:
+          entry.displayname.first.to_s.presence || username,
+
+        dn: entry.dn,
+
+        admin: roles.include?(:portal_admin),
+
+        roles: roles
+      )
+    end
+
   rescue Net::LDAP::Error,
          OpenSSL::SSL::SSLError,
          IOError,
          SystemCallError,
+         SocketError,
          Timeout::Error,
          KeyError => e
 
@@ -125,41 +222,43 @@ class ActiveDirectoryAuthenticator
     nil
   end
 
-  # Resolve the user's current application roles.
-  #
-  # This is called on authenticated requests using the
-  # configured read-only AD lookup service account.
-  #
-  # Returns:
-  #   Array<Symbol> - verified roles
-  #   []            - no authorised memberships
-  #   nil           - directory failure
+  # ==========================================================
+  # LIVE ACTIVE DIRECTORY ROLE RESOLUTION
+  # ==========================================================
+
   def self.current_roles(username)
     return nil unless username.to_s.match?(
       /\A[a-zA-Z0-9._-]+\z/
     )
 
-    service_user = ENV.fetch("HERGA_AD_SERVICE_USER")
-    service_password = ENV.fetch("HERGA_AD_SERVICE_PASSWORD")
+    service_user = ENV.fetch(
+      "HERGA_AD_SERVICE_USER"
+    )
 
-    ldap = connection(
+    service_password = ENV.fetch(
+      "HERGA_AD_SERVICE_PASSWORD"
+    )
+
+    with_connection(
       username: service_user,
       password: service_password
-    )
+    ) do |ldap|
 
-    return nil unless ldap.bind
+      entry = find_user(ldap, username)
 
-    entry = find_user(ldap, username)
-    return nil unless entry
+      next nil unless entry
 
-    ActiveDirectory::RoleResolver.resolve(
-      ldap: ldap,
-      user_dn: entry.dn
-    )
+      ActiveDirectory::RoleResolver.resolve(
+        ldap: ldap,
+        user_dn: entry.dn
+      )
+    end
+
   rescue Net::LDAP::Error,
          OpenSSL::SSL::SSLError,
          IOError,
          SystemCallError,
+         SocketError,
          Timeout::Error,
          KeyError => e
 
@@ -170,12 +269,10 @@ class ActiveDirectoryAuthenticator
     nil
   end
 
-  # Backward-compatible legacy role method.
-  #
-  # Existing code that calls current_role continues
-  # to receive :admin, :employee or nil.
-  #
-  # New RBAC code should use current_roles instead.
+  # ==========================================================
+  # LEGACY ROLE COMPATIBILITY
+  # ==========================================================
+
   def self.current_role(username)
     roles = current_roles(username)
 
@@ -186,45 +283,52 @@ class ActiveDirectoryAuthenticator
     :employee
   end
 
-  # Find exactly one AD user.
+  # ==========================================================
+  # ACTIVE DIRECTORY USER LOOKUP
+  # ==========================================================
+
   def self.find_user(ldap, username)
-    filter = Net::LDAP::Filter.eq(
-      "sAMAccountName",
-      username
-    ) & Net::LDAP::Filter.eq(
-      "objectCategory",
-      "person"
-    )
+    filter =
+      Net::LDAP::Filter.eq(
+        "sAMAccountName", username
+      ) &
+      Net::LDAP::Filter.eq(
+        "objectCategory", "person"
+      )
 
     entries = ldap.search(
       base: BASE_DN,
       filter: filter,
+
       attributes: [
         "distinguishedName",
         "sAMAccountName",
         "mail",
         "displayName"
       ],
+
       size: 2
     )
 
     return nil unless ldap.get_operation_result.code == 0
+
     return nil unless entries&.length == 1
 
     entries.first
   end
 
-  # Find an AD security group by sAMAccountName.
-  #
-  # Reused by ActiveDirectory::RoleResolver.
+  # ==========================================================
+  # ACTIVE DIRECTORY GROUP LOOKUP
+  # ==========================================================
+
   def self.group_dn(ldap, group_name)
-    filter = Net::LDAP::Filter.eq(
-      "sAMAccountName",
-      group_name
-    ) & Net::LDAP::Filter.eq(
-      "objectCategory",
-      "group"
-    )
+    filter =
+      Net::LDAP::Filter.eq(
+        "sAMAccountName", group_name
+      ) &
+      Net::LDAP::Filter.eq(
+        "objectCategory", "group"
+      )
 
     entries = ldap.search(
       base: BASE_DN,
@@ -234,15 +338,16 @@ class ActiveDirectoryAuthenticator
     )
 
     return nil unless ldap.get_operation_result.code == 0
+
     return nil unless entries&.length == 1
 
     entries.first.dn
   end
 
-  # Check direct or nested AD group membership.
-  #
-  # Microsoft LDAP matching rule:
-  # 1.2.840.113556.1.4.1941
+  # ==========================================================
+  # RECURSIVE ACTIVE DIRECTORY GROUP MEMBERSHIP
+  # ==========================================================
+
   def self.member_of?(ldap, user_dn, group_dn)
     escaped_dn = Net::LDAP::Filter.escape(group_dn)
 

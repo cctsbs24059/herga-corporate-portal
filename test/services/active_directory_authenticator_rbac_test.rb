@@ -2,29 +2,47 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "minitest/mock"
 
 class ActiveDirectoryAuthenticatorRbacTest < ActiveSupport::TestCase
+
   USER_DN = "CN=Test User,OU=Users,DC=herga,DC=net"
 
   def fake_user_entry
-    Struct.new(:dn, :mail, :displayname).new(
+    Struct.new(
+      :dn,
+      :mail,
+      :displayname
+    ).new(
       USER_DN,
       ["test.user@herga.net"],
       ["Test User"]
     )
   end
 
-  def with_ldap_connection
+  def with_ldap_connection(bind_code: 0)
     ldap = Object.new
 
-    ActiveDirectoryAuthenticator.stub(:connection, ldap) do
-      ldap.define_singleton_method(:bind) { true }
+    result = Struct.new(:code).new(bind_code)
+
+    ldap.define_singleton_method(:get_operation_result) do
+      result
+    end
+
+    ldap.define_singleton_method(:open) do |&block|
+      block.call(self)
+    end
+
+    ActiveDirectoryAuthenticator.stub(
+      :connection,
+      ldap
+    ) do
       yield ldap
     end
   end
 
   test "authenticates an auditor without employee membership" do
-    with_ldap_connection do |ldap|
+    with_ldap_connection do
       ActiveDirectoryAuthenticator.stub(
         :find_user,
         fake_user_entry
@@ -33,6 +51,7 @@ class ActiveDirectoryAuthenticatorRbacTest < ActiveSupport::TestCase
           :resolve,
           [:auditor]
         ) do
+
           identity = ActiveDirectoryAuthenticator.authenticate(
             'HERGA\test.user',
             "test-password"
@@ -57,6 +76,7 @@ class ActiveDirectoryAuthenticatorRbacTest < ActiveSupport::TestCase
           :resolve,
           [:infrastructure_admin, :auditor]
         ) do
+
           identity = ActiveDirectoryAuthenticator.authenticate(
             'HERGA\test.user',
             "test-password"
@@ -83,6 +103,7 @@ class ActiveDirectoryAuthenticatorRbacTest < ActiveSupport::TestCase
           :resolve,
           [:portal_admin, :employee]
         ) do
+
           identity = ActiveDirectoryAuthenticator.authenticate(
             'HERGA\test.user',
             "test-password"
@@ -105,6 +126,7 @@ class ActiveDirectoryAuthenticatorRbacTest < ActiveSupport::TestCase
           :resolve,
           []
         ) do
+
           assert_nil ActiveDirectoryAuthenticator.authenticate(
             'HERGA\test.user',
             "test-password"
@@ -124,6 +146,7 @@ class ActiveDirectoryAuthenticatorRbacTest < ActiveSupport::TestCase
           :resolve,
           nil
         ) do
+
           assert_nil ActiveDirectoryAuthenticator.authenticate(
             'HERGA\test.user',
             "test-password"
@@ -156,6 +179,7 @@ class ActiveDirectoryAuthenticatorRbacTest < ActiveSupport::TestCase
               end
             end
           ) do
+
             assert_equal(
               [:security_admin, :auditor],
               ActiveDirectoryAuthenticator.current_roles(
@@ -193,14 +217,24 @@ class ActiveDirectoryAuthenticatorRbacTest < ActiveSupport::TestCase
   end
 
   test "legacy current_role denies missing membership" do
-    ActiveDirectoryAuthenticator.stub(:current_roles, []) do
-      assert_nil ActiveDirectoryAuthenticator.current_role("test.user")
+    ActiveDirectoryAuthenticator.stub(
+      :current_roles,
+      []
+    ) do
+      assert_nil ActiveDirectoryAuthenticator.current_role(
+        "test.user"
+      )
     end
   end
 
   test "legacy current_role denies directory failure" do
-    ActiveDirectoryAuthenticator.stub(:current_roles, nil) do
-      assert_nil ActiveDirectoryAuthenticator.current_role("test.user")
+    ActiveDirectoryAuthenticator.stub(
+      :current_roles,
+      nil
+    ) do
+      assert_nil ActiveDirectoryAuthenticator.current_role(
+        "test.user"
+      )
     end
   end
 
