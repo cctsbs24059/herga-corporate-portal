@@ -1,10 +1,12 @@
-
 <% provide(:title, "Incident ##{@incident.id}") %>
 
 <%# ======================================================== %>
 <%# HERGA CORPORATE PORTAL                                  %>
-<%# Phase 2D.6.4 - Infrastructure Incident Details          %>
+<%# Infrastructure Incident Details                         %>
+<%# Phase 2E - Active Directory RBAC Hardening               %>
 <%# ======================================================== %>
+
+<% can_manage_incidents = portal_can?(:infrastructure_manage) %>
 
 <div class="container-fluid py-4">
 
@@ -115,7 +117,8 @@
 
               <dt class="col-sm-4">Resolved By</dt>
               <dd class="col-sm-8">
-                <%= @incident.resolved_by&.username || "Automated Monitoring" %>
+                <%= @incident.resolved_by&.username ||
+                    "Automated Monitoring" %>
               </dd>
 
               <dt class="col-sm-4">Resolved At</dt>
@@ -137,6 +140,7 @@
             <% end %>
 
           </dl>
+
         </div>
       </div>
 
@@ -173,7 +177,8 @@
 
                 <div class="small mt-2">
                   <strong>Actor:</strong>
-                  <%= event.user&.username || "Automated Monitoring" %>
+                  <%= event.user&.username ||
+                      "Automated Monitoring" %>
                 </div>
 
               </div>
@@ -196,90 +201,175 @@
     <!-- Incident management -->
     <div class="col-lg-4">
 
-      <div class="card shadow-sm mb-4">
+      <div class="card shadow-sm mb-4"
+           id="incident-management">
 
         <div class="card-header bg-white py-3">
-          <h5 class="mb-0">Incident Management</h5>
+
+          <div class="d-flex justify-content-between align-items-center">
+
+            <h5 class="mb-0">Incident Management</h5>
+
+            <% if can_manage_incidents %>
+              <span class="badge bg-primary">
+                Management
+              </span>
+            <% else %>
+              <span class="badge bg-secondary">
+                Read Only
+              </span>
+            <% end %>
+
+          </div>
+
         </div>
 
         <div class="card-body">
 
-          <% if @incident.status == "Open" %>
-
-            <%= button_to "Acknowledge Incident",
-                          acknowledge_infrastructure_incident_path(@incident),
-                          method: :patch,
-                          class: "btn btn-warning w-100 mb-3" %>
-
-          <% end %>
-
-          <% if @incident.unresolved? %>
-
-            <!-- Administrator assignment -->
-            <h6 class="fw-bold">
-              Assign Administrator
-            </h6>
-
-            <%= form_with url: assign_infrastructure_incident_path(@incident),
-                          method: :patch,
-                          local: true do %>
-
-              <%= select_tag :assigned_to_id,
-                  options_from_collection_for_select(
-                    @administrators,
-                    :id,
-                    :username,
-                    @incident.assigned_to_id
-                  ),
-                  include_blank: "Select administrator",
-                  class: "form-select mb-2" %>
-
-              <%= submit_tag "Update Assignment",
-                             class: "btn btn-outline-primary w-100 mb-4" %>
-
-            <% end %>
-
-            <hr>
-
-            <!-- Manual resolution -->
-            <h6 class="fw-bold">
-              Resolve Incident
-            </h6>
-
-            <p class="small text-muted">
-              Manual resolution requires a reason and will
-              suppress recurrence until connectivity is restored.
-            </p>
-
-            <%= form_with url: resolve_infrastructure_incident_path(@incident),
-                          method: :patch,
-                          local: true do %>
-
-              <%= text_area_tag :resolution_note,
-                                nil,
-                                rows: 4,
-                                required: true,
-                                class: "form-control mb-2",
-                                placeholder: "Enter resolution details..." %>
-
-              <%= submit_tag "Resolve Incident",
-                             class: "btn btn-success w-100",
-                             data: {
-                               turbo_confirm: "Confirm manual resolution?"
-                             } %>
-
-            <% end %>
-
-          <% else %>
+          <% if @incident.resolved? %>
 
             <div class="alert alert-success mb-0">
               This incident has been resolved.
             </div>
 
+          <% elsif !can_manage_incidents %>
+
+            <div class="alert alert-secondary mb-0"
+                 id="incident-read-only">
+
+              <h6 class="fw-bold">Read-only access</h6>
+
+              <p class="small mb-0">
+                Your current Active Directory permissions allow
+                you to review incident details and audit history.
+                Incident management operations require
+                infrastructure management permission.
+              </p>
+
+            </div>
+
+          <% else %>
+
+            <% if @incident.status == "Open" %>
+
+              <%= button_to "Acknowledge Incident",
+                            acknowledge_infrastructure_incident_path(@incident),
+                            method: :patch,
+                            class: "btn btn-warning w-100 mb-3",
+                            id: "acknowledge-incident-button" %>
+
+            <% end %>
+
+            <% if @incident.unresolved? %>
+
+              <!-- AD-backed assignment -->
+              <h6 class="fw-bold">
+                Assign Incident
+              </h6>
+
+              <p class="small text-muted">
+                Assignment is restricted to users with current
+                infrastructure management permissions verified
+                through Active Directory.
+              </p>
+
+              <% unless @assignment_directory_available %>
+
+                <div class="alert alert-warning"
+                     id="assignment-directory-unavailable">
+
+                  <strong>Directory verification unavailable</strong>
+
+                  <p class="small mb-0">
+                    Assignment is temporarily disabled because
+                    candidate eligibility could not be verified.
+                  </p>
+
+                </div>
+
+              <% else %>
+
+                <% if @eligible_assignees.empty? %>
+
+                  <div class="alert alert-info"
+                       id="no-eligible-assignees">
+
+                    No eligible infrastructure administrators
+                    with local portal profiles were found.
+
+                  </div>
+
+                <% else %>
+
+                  <%= form_with url: assign_infrastructure_incident_path(@incident),
+                                method: :patch,
+                                local: true,
+                                id: "incident-assignment-form" do %>
+
+                    <%= select_tag :assigned_to_id,
+                        options_from_collection_for_select(
+                          @eligible_assignees,
+                          :id,
+                          :username,
+                          @incident.assigned_to_id
+                        ),
+                        include_blank: "Select eligible assignee",
+                        required: true,
+                        class: "form-select mb-2" %>
+
+                    <%= submit_tag "Update Assignment",
+                                   class: "btn btn-outline-primary w-100 mb-4" %>
+
+                  <% end %>
+
+                  <p class="small text-muted">
+                    Eligibility is revalidated when an assignment
+                    is submitted.
+                  </p>
+
+                <% end %>
+
+              <% end %>
+
+              <hr>
+
+              <!-- Manual resolution -->
+              <h6 class="fw-bold">
+                Resolve Incident
+              </h6>
+
+              <p class="small text-muted">
+                Manual resolution requires a reason and will
+                suppress recurrence until connectivity is restored.
+              </p>
+
+              <%= form_with url: resolve_infrastructure_incident_path(@incident),
+                            method: :patch,
+                            local: true,
+                            id: "incident-resolution-form" do %>
+
+                <%= text_area_tag :resolution_note,
+                                  nil,
+                                  rows: 4,
+                                  required: true,
+                                  class: "form-control mb-2",
+                                  placeholder: "Enter resolution details..." %>
+
+                <%= submit_tag "Resolve Incident",
+                               class: "btn btn-success w-100",
+                               data: {
+                                 turbo_confirm: "Confirm manual resolution?"
+                               } %>
+
+              <% end %>
+
+            <% end %>
+
           <% end %>
 
         </div>
       </div>
+
     </div>
 
   </div>

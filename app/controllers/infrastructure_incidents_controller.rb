@@ -2,16 +2,20 @@
 
 # ============================================================
 # HERGA CORPORATE PORTAL
-# Phase 2D.6.4 - Infrastructure Incident Management
+# Infrastructure Incident Management
+# Phase 2E - Active Directory RBAC Hardening
 # ============================================================
 
 class InfrastructureIncidentsController < ApplicationController
   before_action :authenticate_user!
-  before_action -> { require_portal_permission(:infrastructure_read) },
-                only: %i[index show]
 
-  before_action -> { require_portal_permission(:infrastructure_manage) },
-                except: %i[index show]
+  before_action -> {
+    require_portal_permission(:infrastructure_read)
+  }, only: %i[index show]
+
+  before_action -> {
+    require_portal_permission(:infrastructure_manage)
+  }, except: %i[index show]
 
   before_action :set_incident, only: %i[
     show acknowledge assign resolve
@@ -26,10 +30,6 @@ class InfrastructureIncidentsController < ApplicationController
   def index
     @status_filter = params[:status].to_s
 
-    # --------------------------------------------------------
-    # Incident statistics
-    # --------------------------------------------------------
-
     @total_incidents = InfrastructureIncident.count
 
     @open_count =
@@ -43,8 +43,6 @@ class InfrastructureIncidentsController < ApplicationController
     @resolved_count =
       InfrastructureIncident.resolved.count
 
-    # Includes both Open and Acknowledged incidents.
-    # Required by the incident register view.
     @unresolved_incident_count =
       InfrastructureIncident.unresolved.count
 
@@ -53,10 +51,6 @@ class InfrastructureIncidentsController < ApplicationController
         .unresolved
         .where(severity: "Critical")
         .count
-
-    # --------------------------------------------------------
-    # Incident filtering
-    # --------------------------------------------------------
 
     @incidents =
       InfrastructureIncident
@@ -67,10 +61,6 @@ class InfrastructureIncidentsController < ApplicationController
       @incidents =
         @incidents.where(status: @status_filter)
     end
-
-    # --------------------------------------------------------
-    # Pagination
-    # --------------------------------------------------------
 
     @incidents = @incidents.paginate(
       page: params[:page],
@@ -89,14 +79,23 @@ class InfrastructureIncidentsController < ApplicationController
         .includes(:user)
         .recent
 
-    # Assignment candidates are local administrator profiles.
-    # Administrator status is refreshed during successful AD
-    # login and is not a substitute for live AD authorization.
+    @eligible_assignees = []
+    @assignment_directory_available = true
 
-    @administrators =
-      User
-        .where(admin: true)
-        .order(:username)
+    # Read-only users and resolved incidents do not require
+    # additional directory lookups.
+
+    return unless portal_can?(:infrastructure_manage)
+    return unless @incident.unresolved?
+
+    candidates =
+      ActiveDirectory::IncidentAssignmentEligibility.candidates
+
+    if candidates.nil?
+      @assignment_directory_available = false
+    else
+      @eligible_assignees = candidates
+    end
   end
 
   # ----------------------------------------------------------
@@ -139,14 +138,20 @@ class InfrastructureIncidentsController < ApplicationController
   # ----------------------------------------------------------
 
   def assign
-    administrator = User.find_by(
-      id: params[:assigned_to_id],
-      admin: true
+    assignee = User.find_by(
+      id: params[:assigned_to_id]
     )
 
-    unless administrator
-      return redirect_to infrastructure_incident_path(@incident),
-                         alert: "Select a valid administrator."
+    # Never use the local administrator flag.
+    # Verify the selected user's current AD permissions.
+
+    unless assignee &&
+           ActiveDirectory::IncidentAssignmentEligibility.eligible?(assignee)
+
+      return redirect_to(
+        infrastructure_incident_path(@incident),
+        alert: "The selected user's assignment eligibility could not be verified."
+      )
     end
 
     outcome = :invalid
@@ -155,13 +160,13 @@ class InfrastructureIncidentsController < ApplicationController
       @incident.reload
 
       if @incident.unresolved?
-        if @incident.assigned_to_id == administrator.id
+        if @incident.assigned_to_id == assignee.id
           outcome = :unchanged
         else
           previous_assignee = @incident.assigned_to
 
           @incident.update!(
-            assigned_to: administrator
+            assigned_to: assignee
           )
 
           event_type =
@@ -170,9 +175,9 @@ class InfrastructureIncidentsController < ApplicationController
           details =
             if previous_assignee
               "Reassigned from #{previous_assignee.username} " \
-                "to #{administrator.username} by #{current_user.username}"
+                "to #{assignee.username} by #{current_user.username}"
             else
-              "Assigned to #{administrator.username} " \
+              "Assigned to #{assignee.username} " \
                 "by #{current_user.username}"
             end
 
@@ -190,7 +195,7 @@ class InfrastructureIncidentsController < ApplicationController
 
     when :unchanged
       redirect_to infrastructure_incident_path(@incident),
-                  notice: "Incident is already assigned to this administrator."
+                  notice: "Incident is already assigned to this user."
 
     else
       redirect_to infrastructure_incident_path(@incident),
