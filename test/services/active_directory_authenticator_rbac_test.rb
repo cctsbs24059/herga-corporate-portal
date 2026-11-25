@@ -1,4 +1,3 @@
-
 # frozen_string_literal: true
 
 require "test_helper"
@@ -12,11 +11,13 @@ class ActiveDirectoryAuthenticatorRbacTest < ActiveSupport::TestCase
     Struct.new(
       :dn,
       :mail,
-      :displayname
+      :displayname,
+      :useraccountcontrol
     ).new(
       USER_DN,
       ["test.user@herga.net"],
-      ["Test User"]
+      ["Test User"],
+      ["512"]
     )
   end
 
@@ -235,6 +236,48 @@ class ActiveDirectoryAuthenticatorRbacTest < ActiveSupport::TestCase
       assert_nil ActiveDirectoryAuthenticator.current_role(
         "test.user"
       )
+    end
+  end
+
+  test "disabled account cannot authenticate even with valid roles" do
+    entry = fake_user_entry
+    entry.useraccountcontrol = ["514"]
+    with_ldap_connection do
+      ActiveDirectoryAuthenticator.stub(:find_user, entry) do
+        ActiveDirectory::RoleResolver.stub(:resolve, ->(**) { flunk "Unexpected role lookup" }) do
+          assert_nil ActiveDirectoryAuthenticator.authenticate('HERGA\test.user', "test-password")
+        end
+      end
+    end
+  end
+
+  test "missing optional attributes do not prevent authentication" do
+    entry = fake_user_entry
+    entry.mail = nil
+    entry.displayname = nil
+    with_ldap_connection do
+      ActiveDirectoryAuthenticator.stub(:find_user, entry) do
+        ActiveDirectory::RoleResolver.stub(:resolve, [:auditor]) do
+          identity = ActiveDirectoryAuthenticator.authenticate('HERGA\test.user', "test-password")
+          assert identity
+          assert_nil identity.email
+          assert_equal "test.user", identity.display_name
+        end
+      end
+    end
+  end
+
+  test "disabled account cannot retain live roles" do
+    entry = fake_user_entry
+    entry.useraccountcontrol = ["66050"]
+    with_ldap_connection do
+      ENV.stub(:fetch, ->(key, *) { {"HERGA_AD_SERVICE_USER" => "svc-test@herga.net", "HERGA_AD_SERVICE_PASSWORD" => "test-password"}.fetch(key) }) do
+        ActiveDirectoryAuthenticator.stub(:find_user, entry) do
+          ActiveDirectory::RoleResolver.stub(:resolve, ->(**) { flunk "Unexpected role lookup" }) do
+            assert_nil ActiveDirectoryAuthenticator.current_roles("test.user")
+          end
+        end
+      end
     end
   end
 

@@ -1,4 +1,3 @@
-
 # frozen_string_literal: true
 
 require "net/ldap"
@@ -66,6 +65,9 @@ class ActiveDirectoryAuthenticator
 
   # Active Directory recursive membership matching rule.
   CHAIN_RULE = "1.2.840.113556.1.4.1941"
+
+  ACCOUNT_DISABLED_FLAG = 0x0002
+  SECURITY_ENABLED_FLAG = 0x80000000
 
   Result = Struct.new(
     :username,
@@ -183,7 +185,7 @@ class ActiveDirectoryAuthenticator
 
       entry = find_user(ldap, username)
 
-      next nil unless entry
+      next nil unless entry && account_enabled?(entry) == true
 
       roles = ActiveDirectory::RoleResolver.resolve(
         ldap: ldap,
@@ -194,10 +196,10 @@ class ActiveDirectoryAuthenticator
 
       Result.new(
         username: username,
-        email: entry.mail.first.to_s.presence,
+        email: optional_attribute(entry, :mail),
 
         display_name:
-          entry.displayname.first.to_s.presence || username,
+          optional_attribute(entry, :displayname) || username,
 
         dn: entry.dn,
 
@@ -246,7 +248,7 @@ class ActiveDirectoryAuthenticator
 
       entry = find_user(ldap, username)
 
-      next nil unless entry
+      next nil unless entry && account_enabled?(entry) == true
 
       ActiveDirectory::RoleResolver.resolve(
         ldap: ldap,
@@ -287,6 +289,40 @@ class ActiveDirectoryAuthenticator
   # ACTIVE DIRECTORY USER LOOKUP
   # ==========================================================
 
+  # Mandatory attributes must contain exactly one valid decimal integer.
+  def self.integer_attribute(entry, attribute)
+    values = entry[attribute]
+    return nil unless values.is_a?(Array) && values.length == 1
+
+    value = values.first.to_s
+    return nil unless value.match?(/\A-?[0-9]+\z/)
+
+    Integer(value, 10)
+  rescue ArgumentError, KeyError, IndexError
+    nil
+  end
+
+  def self.optional_attribute(entry, attribute)
+    Array(entry[attribute]).first.to_s.presence
+  rescue KeyError, IndexError
+    nil
+  end
+
+  # true = enabled; false = disabled; nil = unverifiable.
+  def self.account_enabled?(entry)
+    value = integer_attribute(entry, :useraccountcontrol)
+    return nil unless value && value.between?(1, 0xFFFFFFFF)
+
+    (value & ACCOUNT_DISABLED_FLAG).zero?
+  end
+
+  def self.security_group?(entry)
+    value = integer_attribute(entry, :grouptype)
+    return false unless value && value.between?(-0x80000000, 0xFFFFFFFF)
+
+    (value & SECURITY_ENABLED_FLAG) != 0
+  end
+
   def self.find_user(ldap, username)
     filter =
       Net::LDAP::Filter.eq(
@@ -304,13 +340,14 @@ class ActiveDirectoryAuthenticator
         "distinguishedName",
         "sAMAccountName",
         "mail",
-        "displayName"
+        "displayName",
+        "userAccountControl"
       ],
 
       size: 2
     )
 
-    return nil unless ldap.get_operation_result.code == 0
+    return nil unless ldap.get_operation_result&.code == 0
 
     return nil unless entries&.length == 1
 
@@ -333,15 +370,18 @@ class ActiveDirectoryAuthenticator
     entries = ldap.search(
       base: BASE_DN,
       filter: filter,
-      attributes: ["distinguishedName"],
+      attributes: ["distinguishedName", "groupType"],
       size: 2
     )
 
-    return nil unless ldap.get_operation_result.code == 0
+    return nil unless ldap.get_operation_result&.code == 0
 
     return nil unless entries&.length == 1
 
-    entries.first.dn
+    entry = entries.first
+    return nil unless security_group?(entry)
+
+    entry.dn
   end
 
   # ==========================================================
@@ -363,8 +403,10 @@ class ActiveDirectoryAuthenticator
       size: 1
     )
 
-    return nil unless ldap.get_operation_result.code == 0
+    return nil unless ldap.get_operation_result&.code == 0
 
-    entries&.any? || false
+    return nil unless entries.is_a?(Array)
+
+    entries.any?
   end
 end

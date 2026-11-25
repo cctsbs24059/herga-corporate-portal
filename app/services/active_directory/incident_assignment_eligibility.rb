@@ -123,6 +123,10 @@ module ActiveDirectory
         return false
       end
 
+      enabled = ActiveDirectoryAuthenticator.account_enabled?(entry)
+      return nil if enabled.nil?
+      return false unless enabled
+
       roles = ActiveDirectory::RoleResolver.resolve(
         ldap: ldap,
         user_dn: entry.dn

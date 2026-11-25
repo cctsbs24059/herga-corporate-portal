@@ -7,7 +7,7 @@ class IncidentAssignmentEligibilityTest < ActiveSupport::TestCase
   Service = ActiveDirectory::IncidentAssignmentEligibility
 
   FakeUser = Struct.new(:id, :username, :admin)
-  FakeEntry = Struct.new(:dn)
+  FakeEntry = Struct.new(:dn, :useraccountcontrol)
   FakeResult = Struct.new(:code)
 
   setup do
@@ -24,7 +24,8 @@ class IncidentAssignmentEligibilityTest < ActiveSupport::TestCase
     )
 
     @entry = FakeEntry.new(
-      "CN=Test User,DC=herga,DC=net"
+      "CN=Test User,DC=herga,DC=net",
+      ["512"]
     )
   end
 
@@ -204,7 +205,7 @@ class IncidentAssignmentEligibilityTest < ActiveSupport::TestCase
     end
 
     lookup = lambda do |_ldap, username|
-      FakeEntry.new(username)
+      FakeEntry.new(username, ["512"])
     end
 
     resolver = lambda do |ldap:, user_dn:|
@@ -251,7 +252,7 @@ class IncidentAssignmentEligibilityTest < ActiveSupport::TestCase
     ]
 
     lookup = lambda do |_ldap, username|
-      FakeEntry.new(username)
+      FakeEntry.new(username, ["512"])
     end
 
     resolver = lambda do |ldap:, user_dn:|
@@ -287,6 +288,22 @@ class IncidentAssignmentEligibilityTest < ActiveSupport::TestCase
   # ----------------------------------------------------------
   # TEST HELPERS
   # ----------------------------------------------------------
+
+  test "disabled candidate is excluded even with administrator roles" do
+    @entry.useraccountcontrol = ["514"]
+    with_directory_roles([:portal_admin]) do
+      refute Service.eligible?(@user)
+      User.stub(:order, [@user]) { assert_equal [], Service.candidates }
+    end
+  end
+
+  test "missing account status withholds candidate list" do
+    @entry.useraccountcontrol = []
+    with_directory_roles([:portal_admin]) do
+      refute Service.eligible?(@user)
+      User.stub(:order, [@user]) { assert_nil Service.candidates }
+    end
+  end
 
   private
 
