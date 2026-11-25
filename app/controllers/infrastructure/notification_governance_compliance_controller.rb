@@ -1,4 +1,3 @@
-
 # frozen_string_literal: true
 
 module Infrastructure
@@ -7,7 +6,7 @@ module Infrastructure
                   only: :index
 
     before_action -> { require_portal_permission(:governance_evidence_read) },
-                  only: %i[export evidence_bundle]
+                  except: :index
 
     def index
       @report = NotificationGovernanceComplianceReport.new

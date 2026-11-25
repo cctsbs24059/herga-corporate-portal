@@ -1,4 +1,3 @@
-
 # frozen_string_literal: true
 
 # ============================================================
@@ -12,7 +11,7 @@ class InfrastructureIncidentsController < ApplicationController
                 only: %i[index show]
 
   before_action -> { require_portal_permission(:infrastructure_manage) },
-                only: %i[acknowledge assign resolve]
+                except: %i[index show]
 
   before_action :set_incident, only: %i[
     show acknowledge assign resolve

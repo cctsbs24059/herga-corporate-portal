@@ -1,4 +1,3 @@
-
 # frozen_string_literal: true
 
 module Infrastructure
@@ -7,7 +6,7 @@ module Infrastructure
                   only: %i[index show]
 
     before_action -> { require_portal_permission(:infrastructure_manage) },
-                  only: :acknowledge
+                  except: %i[index show]
 
     before_action :set_alert, only: %i[show acknowledge]
 

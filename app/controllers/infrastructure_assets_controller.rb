@@ -5,11 +5,7 @@ class InfrastructureAssetsController < ApplicationController
                 only: %i[index show history]
 
   before_action -> { require_portal_permission(:infrastructure_manage) },
-                only: %i[
-                  new create edit update retire
-                  sync_active_directory check_connectivity
-                  check_all_connectivity
-                ]
+                except: %i[index show history]
 
   before_action :set_asset, only: %i[
     show history edit update retire check_connectivity

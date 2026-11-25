@@ -1,4 +1,3 @@
-
 # frozen_string_literal: true
 
 # ============================================================
@@ -65,7 +64,7 @@ Rails.application.routes.draw do
   # 5. INFRASTRUCTURE ASSET MANAGEMENT
   # ==========================================================
 
-  resources :infrastructure_assets do
+  resources :infrastructure_assets, except: [:destroy] do
     collection do
       post :sync_active_directory
       post :check_all_connectivity
