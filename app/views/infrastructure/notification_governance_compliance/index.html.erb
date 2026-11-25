@@ -1,5 +1,5 @@
-
 <% provide(:title, "Governance Compliance Reporting") %>
+<% can_export_evidence = portal_can?(:governance_evidence_read) %>
 
 <div class="container-fluid py-4" id="notification-governance-compliance">
 
@@ -29,13 +29,17 @@
         Security Assessment
       <% end %>
 
-      <%= link_to infrastructure_notification_governance_evidence_bundle_path,
-                  class: "btn btn-primary",
-                  aria: {
-                    label: "Download complete governance evidence bundle"
-                  } do %>
-        <i class="bi bi-file-earmark-zip me-1" aria-hidden="true"></i>
-        Download Evidence Bundle
+      <% if can_export_evidence %>
+        <%= link_to infrastructure_notification_governance_evidence_bundle_path,
+                    class: "btn btn-primary",
+                    aria: {
+                      label: "Download complete governance evidence bundle"
+                    } do %>
+          <i class="bi bi-file-earmark-zip me-1" aria-hidden="true"></i>
+          Download Evidence Bundle
+        <% end %>
+      <% else %>
+        <span class="small text-muted">Evidence export permission required.</span>
       <% end %>
 
     </div>
@@ -211,15 +215,19 @@
               and JSON integrity manifest.
             </p>
 
-            <%= link_to infrastructure_notification_governance_evidence_bundle_path,
-                        class: "btn btn-primary w-100",
-                        aria: {
-                          label: "Download governance evidence TAR GZ archive"
-                        } do %>
+            <% if can_export_evidence %>
+              <%= link_to infrastructure_notification_governance_evidence_bundle_path,
+                          class: "btn btn-primary w-100",
+                          aria: {
+                            label: "Download governance evidence TAR GZ archive"
+                          } do %>
 
-              <i class="bi bi-download me-2" aria-hidden="true"></i>
-              Download .tar.gz
+                <i class="bi bi-download me-2" aria-hidden="true"></i>
+                Download .tar.gz
 
+              <% end %>
+            <% else %>
+              <span class="small text-muted">Evidence export permission required.</span>
             <% end %>
 
           </div>
@@ -355,17 +363,21 @@
 
                 <td class="text-end">
 
-                  <%= link_to infrastructure_notification_governance_compliance_export_path(
-                                section: section
-                              ),
-                              class: "btn btn-sm btn-outline-primary",
-                              aria: {
-                                label: "Export #{section.humanize} CSV"
-                              } do %>
+                  <% if can_export_evidence %>
+                    <%= link_to infrastructure_notification_governance_compliance_export_path(
+                                  section: section
+                                ),
+                                class: "btn btn-sm btn-outline-primary",
+                                aria: {
+                                  label: "Export #{section.humanize} CSV"
+                                } do %>
 
-                    <i class="bi bi-download me-1" aria-hidden="true"></i>
-                    Export CSV
+                      <i class="bi bi-download me-1" aria-hidden="true"></i>
+                      Export CSV
 
+                    <% end %>
+                  <% else %>
+                    <span class="small text-muted">Evidence export permission required.</span>
                   <% end %>
 
                 </td>

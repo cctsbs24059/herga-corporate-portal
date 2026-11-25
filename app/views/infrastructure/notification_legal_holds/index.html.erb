@@ -1,42 +1,471 @@
 <% provide(:title, "Notification Legal Holds") %>
+
+<% can_manage_holds = portal_can?(:governance_manage) %>
+<% current_actor = current_user.username.to_s.strip %>
+
 <div class="container-fluid py-4" id="notification-legal-holds">
-  <div class="d-flex justify-content-between flex-wrap gap-2 mb-3">
-    <h1 class="h3">Notification Legal Holds</h1>
-    <div class="d-flex gap-2">
-      <%= link_to "Policies", infrastructure_notification_retention_policies_path, class: "btn btn-outline-secondary" %>
-      <%= link_to "Register Hold", new_infrastructure_notification_legal_hold_path, class: "btn btn-primary" %>
+
+  <%# ======================================================== %>
+  <%# PAGE HEADER                                              %>
+  <%# ======================================================== %>
+
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+
+    <div>
+
+      <h1 class="h3 mb-1">
+        Notification Legal Holds
+      </h1>
+
+      <p class="text-muted mb-0">
+        Legal hold registration, release and audit governance.
+      </p>
+
     </div>
+
+    <div class="d-flex flex-wrap gap-2">
+
+      <%= link_to "Policies",
+                  infrastructure_notification_retention_policies_path,
+                  class: "btn btn-outline-secondary" %>
+
+      <% if can_manage_holds %>
+
+        <%= link_to "Register Hold",
+                    new_infrastructure_notification_legal_hold_path,
+                    class: "btn btn-primary",
+                    id: "register-legal-hold-button" %>
+
+      <% end %>
+
+    </div>
+
   </div>
-  <div class="alert alert-info">A release requires a different administrator and a documented justification. Releasing a hold does not delete any notification.</div>
-  <div class="card shadow-sm mb-3"><div class="card-body">
-    <h2 class="h5">Audit consistency assessment</h2>
-    <p class="mb-1">Active: <%= @audit_summary[:active_holds] %> · Released: <%= @audit_summary[:released_holds] %> · Release events: <%= @audit_summary[:release_events] %></p>
-    <p class="mb-0">Released without event: <%= @audit_summary[:released_without_event] %> · Active with release event: <%= @audit_summary[:active_with_release_event] %> · Duplicate release events: <%= @audit_summary[:multiple_release_events] %> · Append-only trigger: <%= @audit_summary[:append_only_trigger_enabled] ? "Enabled" : "Missing/disabled" %></p>
-    <small class="text-muted">These checks identify consistency anomalies; they do not provide cryptographic proof against privileged database tampering.</small>
-  </div></div>
-  <div class="card shadow-sm"><div class="table-responsive"><table class="table table-striped align-middle mb-0">
-    <thead><tr><th>Reference</th><th>Notification ID</th><th>Reason</th><th>Status</th><th>Placed by</th><th>Placed (UTC)</th><th>Release</th></tr></thead>
-    <tbody>
-    <% @holds.each do |hold| %>
-      <tr>
-        <td><%= hold.reference %></td><td><%= hold.infrastructure_notification_id %></td><td><%= hold.reason %></td>
-        <td><%= hold.active? ? "Active" : "Released" %></td><td><%= hold.placed_by %></td>
-        <td><%= hold.placed_at.utc.strftime("%d %b %Y %H:%M") %></td>
-        <td>
-          <% if hold.active? && !hold.placed_by.to_s.strip.casecmp?(current_user.username.to_s.strip) %>
-            <%= form_with url: release_infrastructure_notification_legal_hold_path(hold), method: :patch do |f| %>
-              <%= f.label :justification, "Release justification", class: "visually-hidden" %>
-              <%= f.text_field :justification, required: true, class: "form-control form-control-sm mb-1", placeholder: "Release justification" %>
-              <%= f.submit "Release hold", class: "btn btn-sm btn-outline-danger", data: { turbo_confirm: "Release this hold? This action is audited." } %>
-            <% end %>
-          <% elsif hold.active? %>
-            <span class="text-muted">Creator cannot release</span>
-          <% else %>
-            <span class="text-muted"><%= hold.released_by %> · <%= hold.released_at&.utc&.strftime("%d %b %Y %H:%M") %></span>
+
+  <%# ======================================================== %>
+  <%# GOVERNANCE NOTICES                                       %>
+  <%# ======================================================== %>
+
+  <div class="alert alert-info">
+
+    <strong>Segregation of duties.</strong>
+
+    Releasing a legal hold requires a different authorised
+    governance manager and a documented justification.
+
+    Releasing a hold does not delete the associated notification.
+
+  </div>
+
+  <% unless can_manage_holds %>
+
+    <div class="alert alert-secondary"
+         id="legal-holds-read-only"
+         role="status">
+
+      <strong>Read-only access.</strong>
+
+      You may review legal holds and audit consistency evidence.
+      Registration and release require governance management permission.
+
+    </div>
+
+  <% end %>
+
+  <%# ======================================================== %>
+  <%# AUDIT CONSISTENCY ASSESSMENT                              %>
+  <%# ======================================================== %>
+
+  <div class="card shadow-sm mb-4"
+       id="legal-hold-audit-summary">
+
+    <div class="card-header bg-light">
+
+      <h2 class="h5 mb-0">
+        Audit Consistency Assessment
+      </h2>
+
+    </div>
+
+    <div class="card-body">
+
+      <div class="row g-3 mb-4">
+
+        <div class="col-md-4">
+
+          <div class="card h-100 border-success">
+
+            <div class="card-body">
+
+              <div class="small text-muted">
+                Active legal holds
+              </div>
+
+              <div class="fs-3 fw-semibold text-success">
+                <%= @audit_summary[:active_holds] %>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+        <div class="col-md-4">
+
+          <div class="card h-100">
+
+            <div class="card-body">
+
+              <div class="small text-muted">
+                Released legal holds
+              </div>
+
+              <div class="fs-3 fw-semibold">
+                <%= @audit_summary[:released_holds] %>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+        <div class="col-md-4">
+
+          <div class="card h-100">
+
+            <div class="card-body">
+
+              <div class="small text-muted">
+                Recorded release events
+              </div>
+
+              <div class="fs-3 fw-semibold">
+                <%= @audit_summary[:release_events] %>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <div class="table-responsive">
+
+        <table class="table table-sm align-middle mb-3">
+
+          <thead class="table-light">
+
+            <tr>
+              <th>Audit control</th>
+              <th class="text-end">Result</th>
+            </tr>
+
+          </thead>
+
+          <tbody>
+
+            <tr>
+
+              <td>Released holds without release event</td>
+
+              <td class="text-end">
+
+                <span class="badge <%= @audit_summary[:released_without_event].to_i.zero? ? 'bg-success' : 'bg-danger' %>">
+
+                  <%= @audit_summary[:released_without_event] %>
+
+                </span>
+
+              </td>
+
+            </tr>
+
+            <tr>
+
+              <td>Active holds with release event</td>
+
+              <td class="text-end">
+
+                <span class="badge <%= @audit_summary[:active_with_release_event].to_i.zero? ? 'bg-success' : 'bg-danger' %>">
+
+                  <%= @audit_summary[:active_with_release_event] %>
+
+                </span>
+
+              </td>
+
+            </tr>
+
+            <tr>
+
+              <td>Duplicate release events</td>
+
+              <td class="text-end">
+
+                <span class="badge <%= @audit_summary[:multiple_release_events].to_i.zero? ? 'bg-success' : 'bg-danger' %>">
+
+                  <%= @audit_summary[:multiple_release_events] %>
+
+                </span>
+
+              </td>
+
+            </tr>
+
+            <tr>
+
+              <td>PostgreSQL append-only audit trigger</td>
+
+              <td class="text-end">
+
+                <% if @audit_summary[:append_only_trigger_enabled] %>
+
+                  <span class="badge bg-success">
+                    Enabled
+                  </span>
+
+                <% else %>
+
+                  <span class="badge bg-danger">
+                    Missing / Disabled
+                  </span>
+
+                <% end %>
+
+              </td>
+
+            </tr>
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+      <p class="small text-muted mb-0">
+
+        These checks identify audit consistency anomalies.
+        They do not provide cryptographic proof against
+        privileged database tampering.
+
+      </p>
+
+    </div>
+
+  </div>
+
+  <%# ======================================================== %>
+  <%# LEGAL HOLD REGISTER                                      %>
+  <%# ======================================================== %>
+
+  <div class="card shadow-sm" id="legal-hold-register">
+
+    <div class="card-header bg-light">
+
+      <h2 class="h5 mb-0">
+        Legal Hold Register
+      </h2>
+
+    </div>
+
+    <div class="table-responsive">
+
+      <table class="table table-striped align-middle mb-0">
+
+        <thead class="table-light">
+
+          <tr>
+
+            <th>Reference</th>
+            <th>Notification ID</th>
+            <th>Reason</th>
+            <th>Status</th>
+            <th>Placed by</th>
+            <th>Placed (UTC)</th>
+            <th>Release / Evidence</th>
+
+          </tr>
+
+        </thead>
+
+        <tbody>
+
+          <% @holds.each do |hold| %>
+
+            <% creator = hold.placed_by.to_s.strip %>
+
+            <% may_release = can_manage_holds &&
+                             hold.active? &&
+                             creator.present? &&
+                             current_actor.present? &&
+                             !creator.casecmp?(current_actor) %>
+
+            <tr id="legal-hold-<%= hold.id %>">
+
+              <td class="fw-semibold">
+
+                <%= hold.reference %>
+
+              </td>
+
+              <td>
+
+                <%= hold.infrastructure_notification_id %>
+
+              </td>
+
+              <td>
+
+                <%= hold.reason %>
+
+              </td>
+
+              <td>
+
+                <% if hold.active? %>
+
+                  <span class="badge bg-success">
+                    Active
+                  </span>
+
+                <% else %>
+
+                  <span class="badge bg-secondary">
+                    Released
+                  </span>
+
+                <% end %>
+
+              </td>
+
+              <td>
+
+                <%= creator.presence || "Unknown" %>
+
+              </td>
+
+              <td>
+
+                <%= hold.placed_at&.utc&.strftime("%d %b %Y %H:%M") || "-" %>
+
+              </td>
+
+              <td>
+
+                <% if !hold.active? %>
+
+                  <div class="small"
+                       id="legal-hold-release-evidence-<%= hold.id %>">
+
+                    <div class="fw-semibold">
+                      Released by
+                    </div>
+
+                    <div>
+
+                      <%= hold.released_by.presence || "Unknown" %>
+
+                    </div>
+
+                    <div class="text-muted">
+
+                      <%= hold.released_at&.utc&.strftime("%d %b %Y %H:%M UTC") || "-" %>
+
+                    </div>
+
+                  </div>
+
+                <% elsif !can_manage_holds %>
+
+                  <span class="small text-muted"
+                        id="legal-hold-read-only-<%= hold.id %>">
+
+                    Read-only access
+
+                  </span>
+
+                <% elsif may_release %>
+
+                  <%= form_with url: release_infrastructure_notification_legal_hold_path(hold),
+                                method: :patch,
+                                id: "legal-hold-release-form-#{hold.id}",
+                                class: "legal-hold-release-form" do |f| %>
+
+                    <div class="mb-2">
+
+                      <%= f.label :justification,
+                                  "Release justification",
+                                  for: "legal-hold-justification-#{hold.id}",
+                                  class: "visually-hidden" %>
+
+                      <%= f.text_field :justification,
+                                       id: "legal-hold-justification-#{hold.id}",
+                                       required: true,
+                                       class: "form-control form-control-sm",
+                                       placeholder: "Release justification",
+                                       autocomplete: "off" %>
+
+                    </div>
+
+                    <%= f.submit "Release Hold",
+                                 class: "btn btn-sm btn-outline-danger",
+                                 data: {
+                                   turbo_confirm: "Release this legal hold? This action will be audited."
+                                 } %>
+
+                  <% end %>
+
+                <% elsif creator.blank? || current_actor.blank? %>
+
+                  <span class="small text-danger"
+                        id="legal-hold-identity-blocked-<%= hold.id %>">
+
+                    Release blocked: identity evidence unavailable.
+
+                  </span>
+
+                <% else %>
+
+                  <span class="small text-muted"
+                        id="legal-hold-self-release-blocked-<%= hold.id %>">
+
+                    Creator cannot release own hold.
+
+                  </span>
+
+                <% end %>
+
+              </td>
+
+            </tr>
+
           <% end %>
-        </td>
-      </tr>
-    <% end %>
-    <% if @holds.empty? %><tr><td colspan="7">No legal holds registered.</td></tr><% end %>
-    </tbody></table></div></div>
+
+          <% if @holds.empty? %>
+
+            <tr>
+
+              <td colspan="7"
+                  class="text-center text-muted py-4">
+
+                No legal holds registered.
+
+              </td>
+
+            </tr>
+
+          <% end %>
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </div>
+
 </div>

@@ -1,20 +1,134 @@
 <% provide(:title, "Retention Policies") %>
+
+<% can_manage_policies = portal_can?(:governance_manage) %>
+
 <div class="container-fluid py-4" id="retention-policies">
+
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <h1 class="h3 mb-0">Retention Policies</h1>
-    <div class="d-flex gap-2">
-      <%= link_to "Retention Assessment", infrastructure_notification_retention_path, class: "btn btn-outline-secondary" %>
-      <%= link_to "Legal Holds", infrastructure_notification_legal_holds_path, class: "btn btn-outline-secondary" %>
-      <%= link_to "New Draft", new_infrastructure_notification_retention_policy_path, class: "btn btn-primary" %>
+
+    <div>
+      <h1 class="h3 mb-1">Retention Policies</h1>
+      <p class="text-muted mb-0">
+        Notification retention governance and policy lifecycle management.
+      </p>
     </div>
-  </div>
-  <div class="alert alert-warning">Policy approval is governance metadata only. It does not authorise deletion or archival.</div>
-  <div class="card shadow-sm"><div class="table-responsive">
-    <table class="table table-striped align-middle mb-0"><thead><tr><th>Reference</th><th>Name</th><th>Days</th><th>Status</th><th>Version</th><th></th></tr></thead><tbody>
-      <% @policies.each do |policy| %>
-        <tr><td><%= policy.reference %></td><td><%= policy.name %></td><td><%= policy.retention_days %></td><td><%= policy.status %></td><td><%= policy.version %></td><td><%= link_to "Review", infrastructure_notification_retention_policy_path(policy), class: "btn btn-sm btn-outline-primary" %></td></tr>
+
+    <div class="d-flex flex-wrap gap-2">
+
+      <%= link_to "Retention Assessment",
+                  infrastructure_notification_retention_path,
+                  class: "btn btn-outline-secondary" %>
+
+      <%= link_to "Legal Holds",
+                  infrastructure_notification_legal_holds_path,
+                  class: "btn btn-outline-secondary" %>
+
+      <% if can_manage_policies %>
+        <%= link_to "New Draft",
+                    new_infrastructure_notification_retention_policy_path,
+                    class: "btn btn-primary",
+                    id: "new-retention-policy-button" %>
       <% end %>
-      <% if @policies.empty? %><tr><td colspan="6" class="text-muted">No policies have been registered.</td></tr><% end %>
-    </tbody></table>
-  </div></div>
+
+    </div>
+
+  </div>
+
+  <div class="alert alert-warning">
+    Policy approval is governance metadata only.
+    It does not authorise deletion or archival.
+  </div>
+
+  <% unless can_manage_policies %>
+    <div class="alert alert-info"
+         id="retention-policies-read-only"
+         role="status">
+
+      <strong>Read-only access.</strong>
+      You may review retention policies and audit evidence.
+      Policy lifecycle management requires governance management permission.
+
+    </div>
+  <% end %>
+
+  <div class="card shadow-sm">
+
+    <div class="table-responsive">
+
+      <table class="table table-striped align-middle mb-0">
+
+        <thead class="table-light">
+          <tr>
+            <th>Reference</th>
+            <th>Name</th>
+            <th>Days</th>
+            <th>Status</th>
+            <th>Version</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+
+          <% @policies.each do |policy| %>
+
+            <tr>
+
+              <td class="fw-semibold">
+                <%= policy.reference %>
+              </td>
+
+              <td><%= policy.name %></td>
+
+              <td><%= policy.retention_days %></td>
+
+              <td>
+
+                <% case policy.status %>
+                <% when "Draft" %>
+                  <span class="badge bg-secondary">Draft</span>
+                <% when "Approved" %>
+                  <span class="badge bg-success">Approved</span>
+                <% when "Suspended" %>
+                  <span class="badge bg-warning text-dark">Suspended</span>
+                <% else %>
+                  <span class="badge bg-light text-dark">
+                    <%= policy.status %>
+                  </span>
+                <% end %>
+
+              </td>
+
+              <td><%= policy.version %></td>
+
+              <td class="text-end">
+
+                <%= link_to "Review",
+                            infrastructure_notification_retention_policy_path(policy),
+                            class: "btn btn-sm btn-outline-primary" %>
+
+              </td>
+
+            </tr>
+
+          <% end %>
+
+          <% if @policies.empty? %>
+
+            <tr>
+              <td colspan="6" class="text-muted text-center py-4">
+                No policies have been registered.
+              </td>
+            </tr>
+
+          <% end %>
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </div>
+
 </div>

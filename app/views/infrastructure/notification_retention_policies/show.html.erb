@@ -1,35 +1,285 @@
 <% provide(:title, "Retention Policy") %>
+
+<% can_manage_policies = portal_can?(:governance_manage) %>
+
 <div class="container-fluid py-4" id="retention-policy-detail">
-  <div class="d-flex justify-content-between flex-wrap gap-2 mb-3"><h1 class="h3"><%= @policy.name %></h1><%= link_to "All Policies", infrastructure_notification_retention_policies_path, class: "btn btn-outline-secondary" %></div>
-  <div class="alert alert-warning">Approval is not disposal authorisation. No deletion or archival operations are available.</div>
-  <div class="card shadow-sm mb-4"><div class="card-body">
-    <dl class="row mb-0">
-      <dt class="col-sm-3">Reference</dt><dd class="col-sm-9"><%= @policy.reference %></dd>
-      <dt class="col-sm-3">Created by</dt><dd class="col-sm-9"><%= @creator.presence || "Unknown — approval blocked" %></dd>
-      <dt class="col-sm-3">Status</dt><dd class="col-sm-9"><%= @policy.status %></dd>
-      <dt class="col-sm-3">Retention period</dt><dd class="col-sm-9"><%= @policy.retention_days %> days</dd>
-      <dt class="col-sm-3">Version</dt><dd class="col-sm-9"><%= @policy.version %></dd>
-      <dt class="col-sm-3">Approved by</dt><dd class="col-sm-9"><%= @policy.approved_by.presence || "Not approved" %></dd>
-      <dt class="col-sm-3">Approved at</dt><dd class="col-sm-9"><%= @policy.approved_at&.utc&.strftime("%d %b %Y %H:%M UTC") || "—" %></dd>
-    </dl>
-  </div></div>
-  <% if @policy.status == "Draft" && !@may_approve %>
-    <div class="alert alert-info" role="status">Independent approval required. The creator cannot approve this policy, and policies without creation evidence cannot be approved.</div>
+
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+
+    <div>
+      <h1 class="h3 mb-1"><%= @policy.name %></h1>
+      <p class="text-muted mb-0">
+        Retention policy lifecycle and governance evidence
+      </p>
+    </div>
+
+    <%= link_to "All Policies",
+                infrastructure_notification_retention_policies_path,
+                class: "btn btn-outline-secondary" %>
+
+  </div>
+
+  <div class="alert alert-warning">
+    Approval is not disposal authorisation.
+    No deletion or archival operations are available.
+  </div>
+
+  <% unless can_manage_policies %>
+
+    <div class="alert alert-info"
+         id="retention-policy-read-only"
+         role="status">
+
+      <strong>Read-only access.</strong>
+      You may review this policy and its audit history.
+      You are not authorised to perform lifecycle management actions.
+
+    </div>
+
   <% end %>
-  <% if @may_approve %>
-    <div class="card mb-4"><div class="card-body">
-      <h2 class="h5">Approve draft</h2><p class="small text-muted">Enter the exact policy reference to confirm. Approval must be performed by an administrator other than the creator.</p>
-      <%= form_with url: approve_infrastructure_notification_retention_policy_path(@policy), method: :patch do |f| %>
-        <%= f.label :approval_reference, "Policy reference", class: "form-label" %>
-        <%= f.text_field :approval_reference, required: true, class: "form-control mb-2", autocomplete: "off" %>
-        <%= f.submit "Approve Policy", class: "btn btn-primary", data: { turbo_confirm: "Approve this policy? This does not authorise disposal." } %>
+
+  <div class="card shadow-sm mb-4">
+
+    <div class="card-header bg-light">
+      <h2 class="h5 mb-0">Policy Information</h2>
+    </div>
+
+    <div class="card-body">
+
+      <dl class="row mb-0">
+
+        <dt class="col-sm-3">Reference</dt>
+        <dd class="col-sm-9"><%= @policy.reference %></dd>
+
+        <dt class="col-sm-3">Created by</dt>
+        <dd class="col-sm-9">
+          <%= @creator.presence || "Unknown - approval blocked" %>
+        </dd>
+
+        <dt class="col-sm-3">Status</dt>
+        <dd class="col-sm-9">
+
+          <% case @policy.status %>
+          <% when "Draft" %>
+            <span class="badge bg-secondary">Draft</span>
+          <% when "Approved" %>
+            <span class="badge bg-success">Approved</span>
+          <% when "Suspended" %>
+            <span class="badge bg-warning text-dark">Suspended</span>
+          <% else %>
+            <span class="badge bg-light text-dark">
+              <%= @policy.status %>
+            </span>
+          <% end %>
+
+        </dd>
+
+        <dt class="col-sm-3">Retention period</dt>
+        <dd class="col-sm-9">
+          <%= @policy.retention_days %> days
+        </dd>
+
+        <dt class="col-sm-3">Version</dt>
+        <dd class="col-sm-9"><%= @policy.version %></dd>
+
+        <dt class="col-sm-3">Approved by</dt>
+        <dd class="col-sm-9">
+          <%= @policy.approved_by.presence || "Not approved" %>
+        </dd>
+
+        <dt class="col-sm-3">Approved at</dt>
+        <dd class="col-sm-9">
+          <%= @policy.approved_at&.utc&.strftime("%d %b %Y %H:%M UTC") || "Not approved" %>
+        </dd>
+
+        <dt class="col-sm-3">Suspended by</dt>
+        <dd class="col-sm-9">
+          <%= @policy.suspended_by.presence || "Not suspended" %>
+        </dd>
+
+        <dt class="col-sm-3">Suspended at</dt>
+        <dd class="col-sm-9">
+          <%= @policy.suspended_at&.utc&.strftime("%d %b %Y %H:%M UTC") || "Not suspended" %>
+        </dd>
+
+      </dl>
+
+    </div>
+
+  </div>
+
+  <% if can_manage_policies %>
+
+    <% if @policy.status == "Draft" %>
+
+      <% if @may_approve %>
+
+        <div class="card shadow-sm mb-4"
+             id="retention-policy-approval">
+
+          <div class="card-header bg-light">
+            <h2 class="h5 mb-0">Approve Draft</h2>
+          </div>
+
+          <div class="card-body">
+
+            <p class="text-muted">
+              Enter the exact policy reference to confirm approval.
+              Approval must be performed by an authorised governance
+              manager other than the creator.
+            </p>
+
+            <%= form_with url: approve_infrastructure_notification_retention_policy_path(@policy),
+                          method: :patch,
+                          id: "retention-policy-approval-form" do |f| %>
+
+              <div class="mb-3">
+
+                <%= f.label :approval_reference,
+                            "Policy reference",
+                            class: "form-label" %>
+
+                <%= f.text_field :approval_reference,
+                                 required: true,
+                                 class: "form-control",
+                                 autocomplete: "off" %>
+
+              </div>
+
+              <%= f.submit "Approve Policy",
+                           class: "btn btn-primary",
+                           data: {
+                             turbo_confirm: "Approve this policy? This does not authorise disposal."
+                           } %>
+
+            <% end %>
+
+          </div>
+
+        </div>
+
+      <% else %>
+
+        <div class="alert alert-info"
+             id="retention-policy-approval-blocked"
+             role="status">
+
+          <strong>Independent approval required.</strong>
+          The creator cannot approve this policy, and policies
+          without creation evidence cannot be approved.
+
+        </div>
+
       <% end %>
-    </div></div>
-  <% elsif @policy.status == "Approved" %>
-    <%= button_to "Suspend Policy", suspend_infrastructure_notification_retention_policy_path(@policy), method: :patch, class: "btn btn-outline-danger mb-4", data: { turbo_confirm: "Suspend this policy?" } %>
+
+    <% elsif @policy.status == "Approved" %>
+
+      <div class="card shadow-sm mb-4"
+           id="retention-policy-suspension">
+
+        <div class="card-header bg-light">
+          <h2 class="h5 mb-0">Suspend Policy</h2>
+        </div>
+
+        <div class="card-body">
+
+          <p class="text-muted">
+            Suspension changes the governance status of this policy.
+            Historical approval and audit evidence will be retained.
+          </p>
+
+          <%= button_to "Suspend Policy",
+                        suspend_infrastructure_notification_retention_policy_path(@policy),
+                        method: :patch,
+                        class: "btn btn-outline-danger",
+                        form: {
+                          id: "retention-policy-suspension-form",
+                          data: {
+                            turbo_confirm: "Suspend this policy?"
+                          }
+                        } %>
+
+        </div>
+
+      </div>
+
+    <% elsif @policy.status == "Suspended" %>
+
+      <div class="alert alert-secondary"
+           id="retention-policy-suspended">
+
+        This policy is suspended.
+        No further lifecycle actions are available.
+
+      </div>
+
+    <% end %>
+
   <% end %>
-  <h2 class="h5">Audit History</h2>
-  <div class="card shadow-sm"><div class="table-responsive"><table class="table mb-0"><thead><tr><th>Time (UTC)</th><th>Action</th><th>Actor</th><th>From</th><th>To</th><th>Version</th></tr></thead><tbody>
-    <% @events.each do |event| %><tr><td><%= event.created_at.utc.strftime("%d %b %Y %H:%M") %></td><td><%= event.action %></td><td><%= event.actor %></td><td><%= event.from_status || "—" %></td><td><%= event.to_status %></td><td><%= event.policy_version %></td></tr><% end %>
-  </tbody></table></div></div>
+
+  <div class="card shadow-sm" id="retention-policy-audit-history">
+
+    <div class="card-header bg-light">
+
+      <h2 class="h5 mb-1">Audit History</h2>
+
+      <p class="small text-muted mb-0">
+        Historical governance lifecycle events.
+      </p>
+
+    </div>
+
+    <div class="table-responsive">
+
+      <table class="table table-striped align-middle mb-0">
+
+        <thead>
+          <tr>
+            <th>Time (UTC)</th>
+            <th>Action</th>
+            <th>Actor</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Version</th>
+          </tr>
+        </thead>
+
+        <tbody>
+
+          <% @events.each do |event| %>
+
+            <tr>
+
+              <td>
+                <%= event.created_at.utc.strftime("%d %b %Y %H:%M") %>
+              </td>
+
+              <td><%= event.action %></td>
+              <td><%= event.actor %></td>
+              <td><%= event.from_status || "-" %></td>
+              <td><%= event.to_status %></td>
+              <td><%= event.policy_version %></td>
+
+            </tr>
+
+          <% end %>
+
+          <% if @events.empty? %>
+
+            <tr>
+              <td colspan="6" class="text-center text-muted py-4">
+                No audit events are available.
+              </td>
+            </tr>
+
+          <% end %>
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </div>
+
 </div>
